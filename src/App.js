@@ -60,6 +60,185 @@ import {
   orderBy,
   writeBatch,
 } from "firebase/firestore";
+// --- ส่วนเสริม: กล่องคอมเมนต์ (วางไว้ก่อนฟังก์ชันหลัก MedGuideApp) ---
+const CommentSection = ({ db, appId, system, topic }) => {
+  const [comments, setComments] = React.useState([]);
+  const [newText, setNewText] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [editingId, setEditingId] = React.useState(null); // ID ที่กำลังแก้ไข
+  const topicKey = `${system}-${topic}`.toLowerCase().trim(); // กุญแจระบุหัวข้อ
+
+  // 1. ดึงคอมเมนต์แบบ Real-time
+  React.useEffect(() => {
+    const q = query(
+      collection(db, "artifacts", appId, "public", "data", "comments"),
+      where("topicKey", "==", topicKey),
+      orderBy("createdAt", "asc")
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setComments(items);
+    });
+    return () => unsubscribe();
+  }, [topicKey]);
+
+  // ฟังก์ชันย่อรูป (Mini Compress)
+  const handleImage = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const scale = 800 / Math.max(img.width, img.height);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // เติมรูปลงในกล่องข้อความอัตโนมัติแบบ Markdown
+        setNewText(
+          (prev) => prev + `\n![img](${canvas.toDataURL("image/jpeg", 0.7)})`
+        );
+      };
+    };
+  };
+
+  // 2. โพสต์คอมเมนต์ / บันทึกการแก้ไข
+  const handleSubmit = async () => {
+    if (!newText.trim()) return;
+    setLoading(true);
+    try {
+      const colRef = collection(
+        db,
+        "artifacts",
+        appId,
+        "public",
+        "data",
+        "comments"
+      );
+
+      if (editingId) {
+        // กรณีแก้ไข
+        await updateDoc(doc(colRef, editingId), { text: newText });
+        setEditingId(null);
+      } else {
+        // กรณีสร้างใหม่
+        await addDoc(colRef, {
+          topicKey,
+          text: newText,
+          createdAt: new Date().toISOString(),
+        });
+      }
+      setNewText("");
+    } catch (e) {
+      alert("Error: " + e.message);
+    }
+    setLoading(false);
+  };
+
+  // 3. ลบคอมเมนต์
+  const handleDelete = async (id) => {
+    if (!window.confirm("ลบข้อความนี้?")) return;
+    await deleteDoc(
+      doc(db, "artifacts", appId, "public", "data", "comments", id)
+    );
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t border-gray-100 bg-gray-50 rounded-lg p-3">
+      <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+        💬 Discussion ({comments.length})
+      </h3>
+
+      {/* List รายการคอมเมนต์ */}
+      <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+        {comments.map((c) => (
+          <div
+            key={c.id}
+            className="bg-white p-2 rounded border border-gray-200 text-sm shadow-sm"
+          >
+            {/* แสดงรูปภาพและข้อความ */}
+            {c.text
+              .split("\n")
+              .map((line, i) =>
+                line.startsWith("![img](") ? (
+                  <img
+                    key={i}
+                    src={line.match(/\((.*?)\)/)[1]}
+                    className="max-h-40 rounded my-1 border"
+                  />
+                ) : (
+                  <div key={i}>{line}</div>
+                )
+              )}
+
+            {/* ปุ่มแก้ไข / ลบ */}
+            <div className="flex justify-end gap-2 mt-2 border-t pt-1">
+              <button
+                onClick={() => {
+                  setEditingId(c.id);
+                  setNewText(c.text);
+                }}
+                className="text-xs text-blue-500 hover:text-blue-700"
+              >
+                แก้ไข
+              </button>
+              <button
+                onClick={() => handleDelete(c.id)}
+                className="text-xs text-red-500 hover:text-red-700"
+              >
+                ลบ
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ช่องกรอกข้อความ */}
+      <div className="flex gap-2 items-start">
+        <textarea
+          value={newText}
+          onChange={(e) => setNewText(e.target.value)}
+          placeholder="พิมเพิ่มเติม/แปะรูป..."
+          className="flex-1 p-2 text-sm border rounded-lg h-20 bg-white focus:ring-2 ring-blue-100 outline-none"
+        />
+        <div className="flex flex-col gap-2">
+          <label className="p-2 bg-gray-200 rounded-lg cursor-pointer hover:bg-gray-300 text-center">
+            📷
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImage}
+              className="hidden"
+            />
+          </label>
+          <button
+            onClick={handleSubmit}
+            disabled={loading}
+            className="p-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700"
+          >
+            {loading ? "..." : editingId ? "Save" : "Send"}
+          </button>
+          {editingId && (
+            <button
+              onClick={() => {
+                setEditingId(null);
+                setNewText("");
+              }}
+              className="text-xs text-gray-400"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Configuration & Seed Data ---
 const MASTER_SEED_DATA = [
   // 1. NERVOUS SYSTEM
@@ -1990,6 +2169,12 @@ export default function MedGuideApp() {
                     </>
                   )}
                 </button>
+                <CommentSection
+                  db={db}
+                  appId={appId}
+                  system={item.system}
+                  topic={item.topic}
+                />
               </div>
             </div>
           </div>
