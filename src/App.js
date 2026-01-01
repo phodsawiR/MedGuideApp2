@@ -59,6 +59,7 @@ import {
   query,
   orderBy,
   writeBatch,
+  where,
 } from "firebase/firestore";
 // --- ส่วนเสริม: กล่องคอมเมนต์ (วางไว้ก่อนฟังก์ชันหลัก MedGuideApp) ---
 const CommentSection = ({ db, appId, system, topic }) => {
