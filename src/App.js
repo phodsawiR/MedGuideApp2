@@ -1506,11 +1506,14 @@ export default function MedGuideApp() {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user]); // --- 2. Smart Sync ---
+  }, [user]);
 
+  // --- 2. Smart Sync & Auto-Cleanup (แก้ปัญหาตัวซ้ำถาวร) ---
   useEffect(() => {
     if (!user) return;
-    const syncData = async () => {
+
+    const syncAndCleanup = async () => {
+      // 1. ดึงข้อมูลทั้งหมดที่มีตอนนี้มาดูก่อน
       const topicsRef = collection(
         db,
         "artifacts",
@@ -1520,38 +1523,79 @@ export default function MedGuideApp() {
         "topics"
       );
       const snapshot = await getDocs(topicsRef);
-      const existingTopics = new Set(
-        snapshot.docs.map((doc) => {
-          const d = doc.data();
-          return `${d.system}-${d.topic}`.toLowerCase().trim();
-        })
-      );
+
+      const seen = new Set();
+      const duplicatesToDelete = [];
+      const existingTopics = new Set();
+
+      // 2. วนลูปเช็คตัวซ้ำ (Deduplicate Logic)
+      snapshot.docs.forEach((doc) => {
+        const d = doc.data();
+        // สร้างกุญแจเช็คจาก "ชื่อระบบ + ชื่อเรื่อง"
+        const key = `${d.system}-${d.topic}`.toLowerCase().trim();
+
+        if (seen.has(key)) {
+          // ถ้าเคยเจอ key นี้แล้ว แสดงว่าเป็น "ตัวซ้ำ" -> เก็บ ID ไว้ลบ
+          duplicatesToDelete.push(doc.id);
+        } else {
+          // ถ้าเพิ่งเจอครั้งแรก -> เก็บไว้เป็น "ตัวจริง"
+          seen.add(key);
+          existingTopics.add(key);
+        }
+      });
+
+      const batch = writeBatch(db);
+      let hasChanges = false;
+
+      // 3. สั่งลบตัวซ้ำ (ถ้าเจอ)
+      if (duplicatesToDelete.length > 0) {
+        console.log(
+          `Auto-cleanup: Deleting ${duplicatesToDelete.length} duplicates...`
+        );
+        duplicatesToDelete.forEach((id) => {
+          batch.delete(doc(topicsRef, id));
+        });
+        hasChanges = true;
+      }
+
+      // 4. เติมข้อมูลที่ขาด (Seeding Logic)
       const toAdd = MASTER_SEED_DATA.filter(
         (seed) =>
           !existingTopics.has(
             `${seed.system}-${seed.topic}`.toLowerCase().trim()
           )
       );
+
       if (toAdd.length > 0) {
-        setIsSyncing(true);
-        const batch = writeBatch(db);
+        console.log(`Seeding: Adding ${toAdd.length} new topics...`);
         toAdd.forEach((item) => {
           const newDocRef = doc(
             collection(db, "artifacts", appId, "public", "data", "topics")
           );
           batch.set(newDocRef, item);
         });
+        hasChanges = true;
+      }
+
+      // 5. บันทึกผลลง Firebase ทีเดียว (Atomic Commit)
+      if (hasChanges) {
         try {
           await batch.commit();
+          if (duplicatesToDelete.length > 0) {
+            showToast(
+              `ระบบลบข้อมูลซ้ำอัตโนมัติ ${duplicatesToDelete.length} รายการ`
+            );
+          }
         } catch (error) {
-          console.error("Sync Failed", error);
-        } finally {
-          setIsSyncing(false);
+          console.error("Sync/Cleanup Failed", error);
         }
       }
     };
-    syncData();
-  }, [user]); // --- B. User Progress ---
+
+    syncAndCleanup();
+  }, [user]);
+
+  // --- B. User Progress ---
 
   useEffect(() => {
     if (!user) return;
