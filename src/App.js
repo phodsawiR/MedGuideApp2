@@ -2248,6 +2248,31 @@ export default function MedGuideApp() {
                     />
                   </div>
                 </div>
+                {/* --- วางตรงนี้เลยครับ (Yield 5 ดาว) --- */}
+                <div className="mb-3">
+                  <label className="block text-xs font-bold text-gray-500 mb-1">
+                    ความสำคัญ (Yield Score)
+                  </label>
+                  <select
+                    value={newTopic.yield_score || 0}
+                    onChange={(e) =>
+                      setNewTopic({
+                        ...newTopic,
+                        yield_score: parseInt(e.target.value),
+                      })
+                    }
+                    className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  >
+                    <option value={0}>-- กรุณาให้คะแนนดาว --</option>
+                    <option value={5}>
+                      ⭐⭐⭐⭐⭐ (5 ดาว - ออกสอบบ่อยที่สุด!)
+                    </option>
+                    <option value={4}>⭐⭐⭐⭐ (4 ดาว - สำคัญมาก)</option>
+                    <option value={3}>⭐⭐⭐ (3 ดาว - สำคัญปานกลาง)</option>
+                    <option value={2}>⭐⭐ (2 ดาว - พอเจอได้บ้าง)</option>
+                    <option value={1}>⭐ (1 ดาว - นานๆ เจอที/อ่านผ่านๆ)</option>
+                  </select>
+                </div>
 
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1">
