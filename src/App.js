@@ -73,8 +73,7 @@ const CommentSection = ({ db, appId, system, topic }) => {
   React.useEffect(() => {
     const q = query(
       collection(db, "artifacts", appId, "public", "data", "comments"),
-      where("topicKey", "==", topicKey),
-      orderBy("createdAt", "asc")
+      where("topicKey", "==", topicKey)
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const items = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
