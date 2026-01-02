@@ -1947,8 +1947,8 @@ export default function MedGuideApp() {
     downloadAnchorNode.remove();
   };
 
-  // ฟังก์ชันใหม่: รับ Text จากการ Paste แล้วแปลงเป็นข้อมูล
-  const handlePasteImport = () => {
+  // แทนที่ฟังก์ชัน handlePasteImport เดิมด้วยอันนี้
+  const handlePasteImport = async () => {
     try {
       if (!jsonText.trim()) {
         alert("กรุณาวางโค้ด JSON ลงในช่องก่อนครับ");
@@ -1958,43 +1958,67 @@ export default function MedGuideApp() {
       // 1. แปลง Text เป็น JSON
       let importedData;
       try {
-        importedData = JSON.parse(jsonText);
-      } catch (e) {
-        // ถ้า Parse ไม่ผ่าน ให้ลองแก้พวกตัวอักษรพิเศษเบื้องต้น
+        // แก้ไขกรณี Copy มาแล้วติดตัวอักษรแปลกๆ หรือ Newline ผิด format
         const fixedText = jsonText
-          .replace(/[\u0000-\u0019]+/g, "") // ลบตัวอักษรขยะที่มองไม่เห็น
-          .replace(/\\n/g, "\\n"); // พยายาม Escape \n ให้ถูกต้อง
+          .replace(/[\u0000-\u0019]+/g, "")
+          .replace(/\\n/g, "\\n");
         importedData = JSON.parse(fixedText);
+      } catch (e) {
+        alert(
+          "JSON Format ไม่ถูกต้อง กรุณาตรวจสอบปีกกา {} หรือเครื่องหมายจุลภาค ,"
+        );
+        return;
       }
 
       const dataArray = Array.isArray(importedData)
         ? importedData
         : [importedData];
 
-      // 2. วนลูปเพื่อแปลง _n_ ให้กลับเป็น \n (Newline ของจริง) สำหรับตาราง
-      const processedData = dataArray.map((item) => ({
-        ...item,
-        // ถ้ามี field content ให้ replace ตัวแทน _n_ เป็น \n ของจริง
-        content: item.content
-          ? item.content.replace(/_n_/g, "\n")
-          : item.content,
-      }));
+      // 2. เตรียม Batch Write (เขียนลง Firebase ทีเดียวหลายรายการ)
+      const batch = writeBatch(db);
+      const collectionRef = collection(
+        db,
+        "artifacts",
+        appId,
+        "public",
+        "data",
+        "topics"
+      );
 
-      // 3. รวมกับข้อมูลเดิม
-      const newTopics = [...topics, ...processedData];
+      let count = 0;
+      dataArray.forEach((item) => {
+        // Data Cleaning: แปลง |n| หรือ _n_ ให้เป็น \n จริงๆ สำหรับแสดงผลตาราง
+        let fixedSummary = item.summary || "";
 
-      setTopics(newTopics);
+        // ถ้าใน JSON ใช้ "n" เฉยๆ (อันตราย) ให้แก้เฉพาะที่อยู่ในตาราง
+        // แต่แนะนำให้ JSON ต้นทางส่งมาเป็น \n (หรือ \\n) จะดีที่สุด
+        // บรรทัดนี้จะแปลง \n ที่เป็น text ให้เป็น new line character
+        fixedSummary = fixedSummary.split("\\n").join("\n");
 
-      // (ถ้ามี localStorage)
-      // localStorage.setItem("medGuideData", JSON.stringify(newTopics));
+        // สร้าง Doc ใหม่ใน Firebase
+        const newDocRef = doc(collectionRef);
+        batch.set(newDocRef, {
+          system: item.system || "Uncategorized",
+          topic: item.topic || "Untitled",
+          yield_score: item.yield_score || 1,
+          keywords: item.keywords || "",
+          summary: fixedSummary,
+          exam_tip: item.exam_tip || "",
+          image: item.image || "",
+          createdAt: new Date().toISOString(), // เพิ่ม Timestamp
+        });
+        count++;
+      });
 
-      setJsonText("");
-      alert(`✅ Import สำเร็จ! เพิ่มข้อมูล ${processedData.length} รายการ`);
+      // 3. ยืนยันการบันทึก
+      await batch.commit();
+
+      showToast(`✅ Import สำเร็จ! เพิ่มข้อมูล ${count} รายการ`, "success");
+      setJsonText(""); // ล้างช่องข้อความ
+      setShowAdmin(false); // ปิดหน้า Admin (เพื่อให้เห็นผลลัพธ์)
     } catch (error) {
       console.error("Import Error:", error);
-      alert(
-        `❌ Format ผิดพลาด! \nสาเหตุ: ${error.message}\nลองเช็คว่าก๊อปปี้ปีกกามาครบไหม`
-      );
+      showToast(`❌ เกิดข้อผิดพลาด: ${error.message}`, "error");
     }
   };
 
