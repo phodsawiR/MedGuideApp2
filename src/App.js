@@ -1645,7 +1645,7 @@ export default function MedGuideApp() {
   const [notification, setNotification] = useState(null);
   const [confirmModal, setConfirmModal] = useState(null);
   const [editingId, setEditingId] = useState(null); // UI States
-
+  const [jsonText, setJsonText] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSystem, setSelectedSystem] = useState("All Systems");
   const [minYield, setMinYield] = useState(3);
@@ -1947,50 +1947,38 @@ export default function MedGuideApp() {
     downloadAnchorNode.remove();
   };
 
-  const handleImportData = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const imported = JSON.parse(e.target.result);
-        setConfirmModal({
-          message: `นำเข้า ${imported.length} รายการ? (ข้ามข้อมูลซ้ำ)`,
-          onConfirm: async () => {
-            setIsSyncing(true);
-            const batch = writeBatch(db);
-            let count = 0;
-            const existingKeys = new Set(
-              knowledgeBase.map((item) =>
-                `${item.system}-${item.topic}`.toLowerCase().trim()
-              )
-            );
-            for (const item of imported) {
-              const key = `${item.system}-${item.topic}`.toLowerCase().trim();
-              if (!existingKeys.has(key)) {
-                const { id, ...cleanItem } = item;
-                const newDocRef = doc(
-                  collection(db, "artifacts", appId, "public", "data", "topics")
-                );
-                batch.set(newDocRef, cleanItem);
-                count++;
-              }
-            }
-            if (count > 0) {
-              await batch.commit();
-              showToast(`นำเข้าสำเร็จ ${count} รายการ`);
-            } else {
-              showToast("ไม่มีข้อมูลใหม่", "error");
-            }
-            setIsSyncing(false);
-            setConfirmModal(null);
-          },
-        });
-      } catch (err) {
-        showToast("ไฟล์ไม่ถูกต้อง", "error");
+  // ฟังก์ชันใหม่: รับ Text จากการ Paste แล้วแปลงเป็นข้อมูล
+  const handlePasteImport = () => {
+    try {
+      // 1. เช็คว่ามีข้อความไหม
+      if (!jsonText || !jsonText.trim()) {
+        alert("กรุณาวางโค้ด JSON ลงในช่องก่อนครับ");
+        return;
       }
-    };
-    reader.readAsText(file);
+
+      // 2. แปลงข้อความ JSON เป็น Object
+      const importedData = JSON.parse(jsonText);
+
+      // 3. แปลงให้เป็น Array (เผื่อ Gemini ให้มาแค่ก้อนเดียว)
+      const dataArray = Array.isArray(importedData)
+        ? importedData
+        : [importedData];
+
+      // 4. รวมข้อมูลใหม่ เข้ากับข้อมูลเดิม (topics)
+      const newTopics = [...topics, ...dataArray];
+
+      // 5. บันทึก
+      setTopics(newTopics);
+
+      // (ถ้ามี localStorage ก็เปิดบรรทัดนี้)
+      // localStorage.setItem("medGuideTopics", JSON.stringify(newTopics));
+
+      setJsonText(""); // ล้างช่องข้อความ
+      alert(`✅ Import สำเร็จ! เพิ่มข้อมูลใหม่ ${dataArray.length} รายการ`);
+    } catch (error) {
+      console.error("Import Error:", error);
+      alert("❌ Format ผิดพลาด! ลองเช็ค JSON จาก Gemini อีกทีครับ");
+    }
   };
 
   // --- Filtering ---
@@ -2470,28 +2458,34 @@ export default function MedGuideApp() {
         {showAdmin && (
           <div className="bg-blue-50 border-b border-blue-200 p-4 md:px-8">
             <div className="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow-sm border border-blue-100">
-              {/* Tools */}
-              <div className="flex justify-end gap-2 mb-4">
-                <button
-                  onClick={handleExportData}
-                  className="flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                >
-                  <Download size={14} /> Export JSON
-                </button>
+              <div className="mb-8 p-4 bg-slate-50 border border-dashed border-slate-300 rounded-xl">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                    Import JSON from Gemini
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setJsonText("")}
+                    className="text-[10px] text-slate-400 hover:text-red-500 underline"
+                  >
+                    Clear
+                  </button>
+                </div>
+
+                <textarea
+                  className="w-full h-24 p-3 text-xs font-mono bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-y mb-3 transition-all"
+                  placeholder='วางโค้ดที่ได้จาก Gemini ตรงนี้... (เช่น [{"title": "...", ...}])'
+                  value={jsonText}
+                  onChange={(e) => setJsonText(e.target.value)}
+                />
 
                 <button
-                  onClick={() => fileInputRef.current.click()}
-                  className="flex items-center gap-1 text-xs text-green-600 hover:underline"
+                  type="button"
+                  onClick={handlePasteImport}
+                  className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold shadow-sm transition-all flex justify-center items-center gap-2"
                 >
-                  <Upload size={14} /> Import JSON
+                  ✅ ยืนยัน Import Data
                 </button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleImportData}
-                  className="hidden"
-                  accept=".json"
-                />
               </div>
 
               <h3 className="flex items-center gap-2 text-lg font-bold text-blue-800 mb-4">
