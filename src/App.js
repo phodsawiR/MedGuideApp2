@@ -2554,42 +2554,57 @@ export default function MedGuideApp() {
                 </div>
 
                 {/* Image Upload */}
+                {/* --- 🟢 ส่วนจัดการรูปภาพ (แบบใหม่: อัปโหลด หรือ วางลิงก์) --- */}
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1">
-                    แนบรูปภาพ (ถ้ามี)
+                    รูปภาพประกอบ
                   </label>
-                  <div className="flex items-center gap-4">
-                    <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2">
-                      <ImageIcon size={16} /> เลือกรูปภาพ
-                      <input
-                        type="file"
-                        ref={imageInputRef}
-                        onChange={handleImageUpload}
-                        className="hidden"
-                        accept="image/*"
-                      />
-                    </label>
+                  <div className="space-y-3">
+                    {/* 1. ช่องวางลิงก์ (ช่วยประหยัดที่ Cloud) */}
+                    <input
+                      type="text"
+                      placeholder="วางลิงก์รูปภาพ (URL) ที่นี่... (เช่น https://site.com/img.jpg)"
+                      value={newTopic.image}
+                      onChange={(e) =>
+                        setNewTopic({ ...newTopic, image: e.target.value })
+                      }
+                      className="w-full p-2 border rounded-lg text-sm bg-gray-50 focus:bg-white transition-colors"
+                    />
+
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-gray-400">หรือ</span>
+                      {/* 2. ปุ่มอัปโหลดไฟล์เดิม */}
+                      <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors">
+                        <ImageIcon size={16} /> อัปโหลดจากเครื่อง
+                        <input
+                          type="file"
+                          ref={imageInputRef}
+                          onChange={handleImageUpload}
+                          className="hidden"
+                          accept="image/*"
+                        />
+                      </label>
+                    </div>
+
+                    {/* Preview รูปภาพ */}
                     {newTopic.image && (
-                      <div className="relative group">
+                      <div className="relative group w-fit mt-2">
                         <img
                           src={newTopic.image}
                           alt="Preview"
-                          className="h-10 w-10 rounded object-cover border border-gray-300"
+                          className="h-24 w-auto rounded-lg object-cover border border-gray-300 shadow-sm"
                         />
                         <button
                           type="button"
                           onClick={() =>
                             setNewTopic({ ...newTopic, image: "" })
                           }
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors"
                         >
                           <X size={12} />
                         </button>
                       </div>
                     )}
-                    <span className="text-xs text-gray-400">
-                      {newTopic.image ? "รูปพร้อมอัปโหลด" : "ยังไม่ได้เลือกรูป"}
-                    </span>
                   </div>
                 </div>
 
@@ -2639,6 +2654,8 @@ export default function MedGuideApp() {
                 📌 <strong>Update:</strong> ตอนนี้เพิ่มฟีเจอร์ Discussion
                 และตารางเปรียบเทียบแล้วนะครับ ใครมีข้อสงสัยตรงไหน
                 พิมพ์ถามทิ้งไว้ได้เลย! ขอให้ทุกคนโชคดีกับการสอบครับ ✌️
+                อย่าอัพรูปความละเอียดสูงเกิน หรือเยอะเกิน แปะลิงค์มาง่ายกว่า
+                เดี๋ยวเมมเต็ม
               </p>
             </div>
             {/* รูปตกแต่งพื้นหลัง (ลายน้ำ) */}
