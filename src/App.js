@@ -63,17 +63,17 @@ import {
 } from "firebase/firestore";
 // --- 🛠️ เครื่องมือแปลงลิงก์ Google Drive (สูตรใหม่: ใช้ Thumbnail แก้ปัญหาบล็อก) ---
 const getImageUrl = (url) => {
-  if (!url || typeof url !== 'string') return null;
-  if (!url.startsWith('http')) return url;
+  if (!url || typeof url !== "string") return null;
+  if (!url.startsWith("http")) return url;
 
   // ถ้าเป็นลิงก์ Google Drive
-  if (url.includes('drive.google.com') && url.includes('/file/d/')) {
+  if (url.includes("drive.google.com") && url.includes("/file/d/")) {
     try {
       // 1. ดึง ID ออกมา
-      const id = url.split('/file/d/')[1].split('/')[0];
-      
+      const id = url.split("/file/d/")[1].split("/")[0];
+
       // 2. ใช้ลิงก์ Thumbnail แทน (Google ใจดี ปล่อยให้โชว์ง่ายกว่า)
-      return `https://drive.google.com/thumbnail?id=${id}&sz=w1000`; 
+      return `https://drive.google.com/thumbnail?id=${id}&sz=w1000`;
     } catch (e) {
       return url;
     }
@@ -2594,9 +2594,22 @@ export default function MedGuideApp() {
                 {/* Image Upload */}
                 {/* --- 🟢 ส่วนจัดการรูปภาพ (แบบใหม่: อัปโหลด หรือ วางลิงก์) --- */}
                 <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1">
-                    รูปภาพประกอบ
-                  </label>
+                  {/* ส่วนหัว: Label + ปุ่มทางลัดเปิด Drive */}
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-xs font-bold text-gray-500">
+                      รูปภาพประกอบ
+                    </label>
+
+                    {/* 🟢 ปุ่มทางลัด (อย่าลืมเอาลิงก์ Folder ของคุณมาใส่ตรง href นะครับ) */}
+                    <a
+                      href="https://drive.google.com/drive/folders/1ZPSXyXyEys4IZ2_z-Ij1mzoDXyVLi_pP?usp=sharing"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-semibold border border-blue-200 px-2 py-0.5 rounded hover:bg-blue-50 transition-colors"
+                    >
+                      📂 เปิดคลังรูป
+                    </a>
+                  </div>
                   <div className="space-y-3">
                     {/* 1. ช่องวางลิงก์ (ช่วยประหยัดที่ Cloud) */}
                     <input
