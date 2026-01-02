@@ -38,6 +38,7 @@ import {
   BarChart2,
   Pencil,
   Image as ImageIcon,
+  Maximize2,
 } from "lucide-react";
 import { initializeApp } from "firebase/app";
 import {
@@ -1636,6 +1637,7 @@ const appId = typeof __app_id !== "undefined" ? __app_id : "medguide-master-db";
 
 export default function MedGuideApp() {
   const [user, setUser] = useState(null);
+  const [zoomContent, setZoomContent] = useState(null);
   const [knowledgeBase, setKnowledgeBase] = useState([]);
   const [readStatus, setReadStatus] = useState({});
   const [isLoading, setIsLoading] = useState(true);
@@ -2093,21 +2095,21 @@ export default function MedGuideApp() {
     return <Stethoscope size={14} className="text-blue-500" />;
   };
 
-  const TopicCard = ({ item, isRead, onToggle }) => {
+  const TopicCard = ({ item, isRead, onToggle, onZoom }) => {
     const [expanded, setExpanded] = useState(false);
 
-    // --- 🟢 ฟังก์ชัน renderSummary (ฉบับอัปเกรด: แก้ HTML Tag + แยกตาราง) ---
+    // --- ฟังก์ชัน renderSummary (มีตาราง + แยก HTML) ---
     const renderSummary = (text) => {
       if (!text) return null;
 
-      // 1. แปลง HTML Tags (<b>, <i>) ให้เป็น Markdown (**, *)
+      // 1. แปลง HTML Tags
       let processedText = text
         .replace(/<b>/g, "**")
         .replace(/<\/b>/g, "**")
         .replace(/<i>/g, "*")
         .replace(/<\/i>/g, "*");
 
-      // 2. ฟังก์ชันย่อยแปลง Markdown เป็นตัวหนา/เอียง
+      // 2. ฟังก์ชันย่อยแปลง Markdown
       const renderFormattedText = (str) => {
         if (!str) return null;
         return str.split("\n").map((line, lineIdx) => (
@@ -2133,10 +2135,9 @@ export default function MedGuideApp() {
         ));
       };
 
-      // 3. เช็คหาตาราง (หาเส้นคั่น |---|)
+      // 3. เช็คหาตาราง
       const lines = processedText.split("\n");
       let tableStartIndex = -1;
-
       for (let i = 0; i < lines.length; i++) {
         if (
           lines[i].includes("|") &&
@@ -2148,7 +2149,6 @@ export default function MedGuideApp() {
         }
       }
 
-      // กรณี: ไม่มีตาราง -> แสดงข้อความปกติ
       if (tableStartIndex === -1) {
         return (
           <div className="text-sm text-gray-700 leading-relaxed">
@@ -2157,49 +2157,62 @@ export default function MedGuideApp() {
         );
       }
 
-      // กรณี: มีตาราง -> แยกส่วน "เกริ่นนำ" และ "ตาราง"
       const introText = lines.slice(0, tableStartIndex).join("\n").trim();
       const tableLines = lines.slice(tableStartIndex);
 
+      // สร้างตารางเก็บไว้
+      const TableContent = (
+        <table className="min-w-full divide-y divide-gray-200 text-sm">
+          <tbody className="bg-white divide-y divide-gray-200">
+            {tableLines.map((row, index) => {
+              if (row.trim().includes("---") || !row.includes("|")) return null;
+              const cells = row.split("|").filter((c) => c.trim() !== "");
+              if (cells.length === 0) return null;
+              const isHeader = index === 0;
+              return (
+                <tr
+                  key={index}
+                  className={
+                    isHeader
+                      ? "bg-blue-50 font-bold text-blue-900"
+                      : "hover:bg-gray-50"
+                  }
+                >
+                  {cells.map((cell, i) => (
+                    <td
+                      key={i}
+                      className="px-4 py-2 border-r last:border-0 border-gray-200 whitespace-pre-wrap"
+                    >
+                      {renderFormattedText(cell.trim())}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      );
+
       return (
         <div className="text-sm text-gray-700 leading-relaxed space-y-4">
-          {/* ส่วนเกริ่นนำ */}
           {introText && <div>{renderFormattedText(introText)}</div>}
 
-          {/* ส่วนตาราง */}
-          <div className="overflow-x-auto border border-gray-200 rounded-lg shadow-sm">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <tbody className="bg-white divide-y divide-gray-200">
-                {tableLines.map((row, index) => {
-                  if (row.trim().includes("---") || !row.includes("|"))
-                    return null;
-
-                  const cells = row.split("|").filter((c) => c.trim() !== "");
-                  if (cells.length === 0) return null;
-
-                  const isHeader = index === 0;
-                  return (
-                    <tr
-                      key={index}
-                      className={
-                        isHeader
-                          ? "bg-blue-50 font-bold text-blue-900"
-                          : "hover:bg-gray-50"
-                      }
-                    >
-                      {cells.map((cell, i) => (
-                        <td
-                          key={i}
-                          className="px-4 py-2 border-r last:border-0 border-gray-200 whitespace-pre-wrap"
-                        >
-                          {renderFormattedText(cell.trim())}
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="relative group">
+            {/* ปุ่มขยายตาราง */}
+            <div className="flex justify-end mb-1">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onZoom(TableContent);
+                }}
+                className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition-colors border border-blue-200"
+              >
+                <Maximize2 size={12} /> ขยายตาราง
+              </button>
+            </div>
+            <div className="overflow-x-auto border border-gray-200 rounded-lg shadow-sm max-h-64 overflow-y-auto">
+              {TableContent}
+            </div>
           </div>
         </div>
       );
@@ -2252,8 +2265,30 @@ export default function MedGuideApp() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {/* ปุ่ม Admin (แก้ไข/ลบ) จะแสดงเฉพาะตอนเปิด Admin Mode */}
-              {/* หมายเหตุ: ต้องส่ง props showAdmin มาด้วยถ้าจะใช้ หรือใช้ Context แต่ในที่นี้ละไว้ตาม code เดิม */}
+              {/* 🟢 ส่วนที่เอากลับมา: ปุ่ม Admin (แก้ไข/ลบ) */}
+              {showAdmin && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditClick(item);
+                    }}
+                    className="text-blue-400 hover:text-blue-600 p-1"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteTopic(item.id);
+                    }}
+                    className="text-red-400 hover:text-red-600 p-1"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </>
+              )}
+
               <div className="text-gray-400 hover:text-gray-600">
                 {expanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
               </div>
@@ -2277,7 +2312,6 @@ export default function MedGuideApp() {
                 <h4 className="flex items-center gap-2 text-sm font-semibold text-blue-800 mb-2">
                   <FileText size={16} /> สรุป High-Yield
                 </h4>
-                {/* เรียกใช้ฟังก์ชันที่เราเพิ่งแก้ */}
                 {renderSummary(item.summary)}
               </div>
               <div className="flex flex-col justify-between gap-4">
@@ -2815,6 +2849,7 @@ export default function MedGuideApp() {
                   item={item}
                   isRead={!!readStatus[item.id]}
                   onToggle={toggleReadStatus}
+                  onZoom={setZoomContent}
                 />
               ))}
             </div>
@@ -2873,6 +2908,43 @@ export default function MedGuideApp() {
             </div>
 
             {/* 👆👆 ------------------------------------------- 👆👆 */}
+          </div>
+        </div>
+      )}
+      {/* --- 🟢 Zoom Modal (Popup แสดงตารางเต็มจอ) --- */}
+      {zoomContent && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setZoomContent(null)} // คลิกพื้นหลังเพื่อปิด
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden relative animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()} // คลิกเนื้อหาไม่ปิด
+          >
+            {/* Header ของ Modal */}
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gray-50">
+              <h3 className="font-bold text-gray-700 flex items-center gap-2">
+                <Maximize2 size={18} /> ดูแบบเต็มจอ
+              </h3>
+              <button
+                onClick={() => setZoomContent(null)}
+                className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <X size={24} className="text-gray-500" />
+              </button>
+            </div>
+
+            {/* Content (ตาราง) */}
+            <div className="p-6 overflow-auto bg-white">
+              <div className="min-w-full">
+                {/* แสดงเนื้อหาที่เราส่งมา (TableContent) 
+                  เราใส่ class ให้ตารางมันขยายเต็มที่ในนี้ 
+                */}
+                <div className="[&_table]:w-full [&_table]:text-base [&_td]:p-4 [&_td]:border">
+                  {zoomContent}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
