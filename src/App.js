@@ -161,19 +161,36 @@ const CommentSection = ({ db, appId, system, topic }) => {
             className="bg-white p-2 rounded border border-gray-200 text-sm shadow-sm"
           >
             {/* แสดงรูปภาพและข้อความ */}
-            {c.text
-              .split("\n")
-              .map((line, i) =>
-                line.startsWith("![img](") ? (
-                  <img
-                    key={i}
-                    src={line.match(/\((.*?)\)/)[1]}
-                    className="max-h-40 rounded my-1 border"
-                  />
-                ) : (
-                  <div key={i}>{line}</div>
-                )
-              )}
+            {/* 🟢 ส่วนแสดงผลแบบใหม่: รูปภาพ หรือ ข้อความ */}
+            {c.text.startsWith("http") &&
+            (c.text.includes(".jpg") ||
+              c.text.includes(".png") ||
+              c.text.includes("drive.google.com")) ? (
+              <div className="mt-2">
+                <img
+                  src={getImageUrl ? getImageUrl(c.text) : c.text}
+                  alt="attachment"
+                  className="max-h-48 rounded-lg border border-gray-200 object-contain bg-gray-50"
+                  onError={(e) => {
+                    // ถ้าโหลดรูปไม่ได้ ให้โชว์ลิงก์แทน
+                    e.target.style.display = "none";
+                    e.target.nextSibling.style.display = "block";
+                  }}
+                />
+                <a
+                  href={c.text}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hidden text-xs text-blue-500 underline mt-1 break-all"
+                >
+                  {c.text}
+                </a>
+              </div>
+            ) : (
+              <div className="text-gray-800 text-sm whitespace-pre-wrap">
+                {c.text}
+              </div>
+            )}
 
             {/* ปุ่มแก้ไข / ลบ */}
             <div className="flex justify-end gap-2 mt-2 border-t pt-1">
