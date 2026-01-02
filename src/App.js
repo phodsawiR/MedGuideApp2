@@ -61,17 +61,19 @@ import {
   writeBatch,
   where,
 } from "firebase/firestore";
-// --- 🛠️ เครื่องมือแปลงลิงก์ Google Drive (วางไว้บนสุด ต่อจาก import) ---
+// --- 🛠️ เครื่องมือแปลงลิงก์ Google Drive (สูตรใหม่: ใช้ Thumbnail แก้ปัญหาบล็อก) ---
 const getImageUrl = (url) => {
-  if (!url) return null;
-  // ถ้าไม่ใช่ลิงก์ (เช่น เป็นข้อความเฉยๆ) ให้คืนค่าเดิม
-  if (!url.startsWith("http")) return url;
+  if (!url || typeof url !== 'string') return null;
+  if (!url.startsWith('http')) return url;
 
-  // ถ้าเป็นลิงก์ Google Drive ให้แปลง
-  if (url.includes("drive.google.com") && url.includes("/file/d/")) {
+  // ถ้าเป็นลิงก์ Google Drive
+  if (url.includes('drive.google.com') && url.includes('/file/d/')) {
     try {
-      const id = url.split("/file/d/")[1].split("/")[0];
-      return `https://drive.google.com/uc?export=view&id=${id}`;
+      // 1. ดึง ID ออกมา
+      const id = url.split('/file/d/')[1].split('/')[0];
+      
+      // 2. ใช้ลิงก์ Thumbnail แทน (Google ใจดี ปล่อยให้โชว์ง่ายกว่า)
+      return `https://drive.google.com/thumbnail?id=${id}&sz=w1000`; 
     } catch (e) {
       return url;
     }
