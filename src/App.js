@@ -61,6 +61,23 @@ import {
   writeBatch,
   where,
 } from "firebase/firestore";
+// --- 🛠️ เครื่องมือแปลงลิงก์ Google Drive (วางไว้บนสุด ต่อจาก import) ---
+const getImageUrl = (url) => {
+  if (!url) return null;
+  // ถ้าไม่ใช่ลิงก์ (เช่น เป็นข้อความเฉยๆ) ให้คืนค่าเดิม
+  if (!url.startsWith('http')) return url;
+  
+  // ถ้าเป็นลิงก์ Google Drive ให้แปลง
+  if (url.includes('drive.google.com') && url.includes('/file/d/')) {
+    try {
+      const id = url.split('/file/d/')[1].split('/')[0];
+      return `https://drive.google.com/uc?export=view&id=${id}`;
+    } catch (e) {
+      return url; 
+    }
+  }
+  return url;
+};
 // --- ส่วนเสริม: กล่องคอมเมนต์ (วางไว้ก่อนฟังก์ชันหลัก MedGuideApp) ---
 const CommentSection = ({ db, appId, system, topic }) => {
   const [comments, setComments] = React.useState([]);
