@@ -2031,6 +2031,46 @@ export default function MedGuideApp() {
 
     const renderSummary = (text) => {
       if (!text) return null;
+      // --- 🟢 1. ตรวจจับตาราง (Table Detection) ---
+      if (text.includes("|") && text.includes("---")) {
+        const rows = text.trim().split("\n");
+        return (
+          <div className="overflow-x-auto my-3 border border-gray-200 rounded-lg shadow-sm">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <tbody className="bg-white divide-y divide-gray-200">
+                {rows.map((row, index) => {
+                  if (row.trim().startsWith("|-") || row.includes("---"))
+                    return null; // ข้ามเส้นคั่น
+                  const cells = row.split("|").filter((c) => c.trim() !== "");
+                  if (cells.length === 0) return null;
+
+                  return (
+                    <tr
+                      key={index}
+                      className={
+                        index === 0
+                          ? "bg-blue-50 font-bold text-blue-900"
+                          : "hover:bg-gray-50"
+                      }
+                    >
+                      {cells.map((cell, i) => (
+                        <td
+                          key={i}
+                          className="px-4 py-2 border-r last:border-0 border-gray-200 whitespace-pre-wrap"
+                        >
+                          {cell.trim()}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      }
+      // --- จบโค้ดตาราง (ส่วนข้างล่างนี้คือของเดิม) ---
+
       let formattedText = text
         .replace(/\s\/\/\s/g, "\n")
         .replace(/(\s)(\d\.)/g, "\n$2")
