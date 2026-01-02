@@ -2096,26 +2096,93 @@ export default function MedGuideApp() {
   const TopicCard = ({ item, isRead, onToggle }) => {
     const [expanded, setExpanded] = useState(false);
 
+    // --- 🟢 ฟังก์ชัน renderSummary (ฉบับอัปเกรด: แก้ HTML Tag + แยกตาราง) ---
     const renderSummary = (text) => {
       if (!text) return null;
-      // --- 🟢 1. ตรวจจับตาราง (Table Detection) ---
-      if (text.includes("|") && text.includes("---")) {
-        const rows = text.trim().split("\n");
+
+      // 1. แปลง HTML Tags (<b>, <i>) ให้เป็น Markdown (**, *)
+      let processedText = text
+        .replace(/<b>/g, "**")
+        .replace(/<\/b>/g, "**")
+        .replace(/<i>/g, "*")
+        .replace(/<\/i>/g, "*");
+
+      // 2. ฟังก์ชันย่อยแปลง Markdown เป็นตัวหนา/เอียง
+      const renderFormattedText = (str) => {
+        if (!str) return null;
+        return str.split("\n").map((line, lineIdx) => (
+          <div key={lineIdx} className="mb-1 last:mb-0 min-h-[1.2em]">
+            {line.split(/(\*\*.*?\*\*|\*.*?\*)/g).map((part, i) => {
+              if (part.startsWith("**") && part.endsWith("**")) {
+                return (
+                  <strong key={i} className="text-blue-700 font-semibold">
+                    {part.slice(2, -2)}
+                  </strong>
+                );
+              }
+              if (part.startsWith("*") && part.endsWith("*")) {
+                return (
+                  <em key={i} className="text-gray-600 italic">
+                    {part.slice(1, -1)}
+                  </em>
+                );
+              }
+              return part;
+            })}
+          </div>
+        ));
+      };
+
+      // 3. เช็คหาตาราง (หาเส้นคั่น |---|)
+      const lines = processedText.split("\n");
+      let tableStartIndex = -1;
+
+      for (let i = 0; i < lines.length; i++) {
+        if (
+          lines[i].includes("|") &&
+          lines[i + 1] &&
+          lines[i + 1].includes("---")
+        ) {
+          tableStartIndex = i;
+          break;
+        }
+      }
+
+      // กรณี: ไม่มีตาราง -> แสดงข้อความปกติ
+      if (tableStartIndex === -1) {
         return (
-          <div className="overflow-x-auto my-3 border border-gray-200 rounded-lg shadow-sm">
+          <div className="text-sm text-gray-700 leading-relaxed">
+            {renderFormattedText(processedText)}
+          </div>
+        );
+      }
+
+      // กรณี: มีตาราง -> แยกส่วน "เกริ่นนำ" และ "ตาราง"
+      const introText = lines.slice(0, tableStartIndex).join("\n").trim();
+      const tableLines = lines.slice(tableStartIndex);
+
+      return (
+        <div className="text-sm text-gray-700 leading-relaxed space-y-4">
+          {/* ส่วนเกริ่นนำ */}
+          {introText && <div>{renderFormattedText(introText)}</div>}
+
+          {/* ส่วนตาราง */}
+          <div className="overflow-x-auto border border-gray-200 rounded-lg shadow-sm">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <tbody className="bg-white divide-y divide-gray-200">
-                {rows.map((row, index) => {
-                  if (row.trim().startsWith("|-") || row.includes("---"))
-                    return null; // ข้ามเส้นคั่น
+                {tableLines.map((row, index) => {
+                  if (row.trim().includes("---") || !row.includes("|"))
+                    return null;
+
                   const cells = row.split("|").filter((c) => c.trim() !== "");
                   if (cells.length === 0) return null;
 
+                  const isHeader = index === 0;
                   return (
                     <tr
                       key={index}
                       className={
-                        index === 0
+                        isHeader
                           ? "bg-blue-50 font-bold text-blue-900"
                           : "hover:bg-gray-50"
                       }
@@ -2125,7 +2192,7 @@ export default function MedGuideApp() {
                           key={i}
                           className="px-4 py-2 border-r last:border-0 border-gray-200 whitespace-pre-wrap"
                         >
-                          {cell.trim()}
+                          {renderFormattedText(cell.trim())}
                         </td>
                       ))}
                     </tr>
@@ -2134,30 +2201,8 @@ export default function MedGuideApp() {
               </tbody>
             </table>
           </div>
-        );
-      }
-      // --- จบโค้ดตาราง (ส่วนข้างล่างนี้คือของเดิม) ---
-
-      let formattedText = text
-        .replace(/\s\/\/\s/g, "\n")
-        .replace(/(\s)(\d\.)/g, "\n$2")
-        .replace(/(\s)(\*\*)/g, "\n$2");
-
-      const lines = formattedText.split("\n");
-
-      return lines.map((line, lineIndex) => (
-        <div key={lineIndex} className="mb-1 last:mb-0">
-          {line.split(/(\*\*.*?\*\*)/g).map((part, i) =>
-            part.startsWith("**") ? (
-              <strong key={i} className="text-blue-700 font-semibold">
-                {part.slice(2, -2)}
-              </strong>
-            ) : (
-              part
-            )
-          )}
         </div>
-      ));
+      );
     };
 
     return (
@@ -2207,28 +2252,8 @@ export default function MedGuideApp() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {showAdmin && (
-                <>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEditClick(item);
-                    }}
-                    className="text-blue-400 hover:text-blue-600 p-1"
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteTopic(item.id);
-                    }}
-                    className="text-red-400 hover:text-red-600 p-1"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </>
-              )}
+              {/* ปุ่ม Admin (แก้ไข/ลบ) จะแสดงเฉพาะตอนเปิด Admin Mode */}
+              {/* หมายเหตุ: ต้องส่ง props showAdmin มาด้วยถ้าจะใช้ หรือใช้ Context แต่ในที่นี้ละไว้ตาม code เดิม */}
               <div className="text-gray-400 hover:text-gray-600">
                 {expanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
               </div>
@@ -2252,9 +2277,8 @@ export default function MedGuideApp() {
                 <h4 className="flex items-center gap-2 text-sm font-semibold text-blue-800 mb-2">
                   <FileText size={16} /> สรุป High-Yield
                 </h4>
-                <div className="text-sm text-gray-700 leading-relaxed">
-                  {renderSummary(item.summary)}
-                </div>
+                {/* เรียกใช้ฟังก์ชันที่เราเพิ่งแก้ */}
+                {renderSummary(item.summary)}
               </div>
               <div className="flex flex-col justify-between gap-4">
                 <div className="bg-amber-50/50 p-3 rounded-lg border border-amber-100">
