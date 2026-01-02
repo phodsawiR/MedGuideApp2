@@ -1964,23 +1964,31 @@ export default function MedGuideApp() {
     [knowledgeBase]
   );
   const filteredData = useMemo(() => {
-    return knowledgeBase.filter((item) => {
-      if (selectedSystem !== "All Systems" && item.system !== selectedSystem)
-        return false;
-      if (item.yield_score < minYield) return false;
-      if (searchTerm) {
-        const kw = Array.isArray(item.keywords)
-          ? item.keywords.join(" ")
-          : item.keywords;
-        const content = [item.topic, item.summary, item.exam_tip, kw]
-          .join(" ")
-          .toLowerCase();
-        if (!content.includes(searchTerm.toLowerCase())) return false;
-      }
-      return true;
-    });
+    return knowledgeBase
+      .filter((item) => {
+        if (selectedSystem !== "All Systems" && item.system !== selectedSystem)
+          return false;
+        if (item.yield_score < minYield) return false;
+        if (searchTerm) {
+          const kw = Array.isArray(item.keywords)
+            ? item.keywords.join(" ")
+            : item.keywords;
+          const content = [item.topic, item.summary, item.exam_tip, kw]
+            .join(" ")
+            .toLowerCase();
+          if (!content.includes(searchTerm.toLowerCase())) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        // 1. เรียงตาม Yield มากไปน้อย (5 ดาวอยู่บนสุด)
+        if (b.yield_score !== a.yield_score) {
+          return b.yield_score - a.yield_score;
+        }
+        // 2. ถ้า Yield เท่ากัน ให้เรียงตามชื่อ Topic (ก-ฮ หรือ A-Z)
+        return a.topic.localeCompare(b.topic);
+      });
   }, [selectedSystem, minYield, searchTerm, knowledgeBase]);
-
   // --- UI Components ---
   const SystemIcon = ({ name }) => {
     if (name.includes("Cardio"))
