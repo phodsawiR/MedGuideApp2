@@ -1950,34 +1950,51 @@ export default function MedGuideApp() {
   // ฟังก์ชันใหม่: รับ Text จากการ Paste แล้วแปลงเป็นข้อมูล
   const handlePasteImport = () => {
     try {
-      // 1. เช็คว่ามีข้อความไหม
-      if (!jsonText || !jsonText.trim()) {
+      if (!jsonText.trim()) {
         alert("กรุณาวางโค้ด JSON ลงในช่องก่อนครับ");
         return;
       }
 
-      // 2. แปลงข้อความ JSON เป็น Object
-      const importedData = JSON.parse(jsonText);
+      // 1. แปลง Text เป็น JSON
+      let importedData;
+      try {
+        importedData = JSON.parse(jsonText);
+      } catch (e) {
+        // ถ้า Parse ไม่ผ่าน ให้ลองแก้พวกตัวอักษรพิเศษเบื้องต้น
+        const fixedText = jsonText
+          .replace(/[\u0000-\u0019]+/g, "") // ลบตัวอักษรขยะที่มองไม่เห็น
+          .replace(/\\n/g, "\\n"); // พยายาม Escape \n ให้ถูกต้อง
+        importedData = JSON.parse(fixedText);
+      }
 
-      // 3. แปลงให้เป็น Array (เผื่อ Gemini ให้มาแค่ก้อนเดียว)
       const dataArray = Array.isArray(importedData)
         ? importedData
         : [importedData];
 
-      // 4. รวมข้อมูลใหม่ เข้ากับข้อมูลเดิม (topics)
-      const newTopics = [...topics, ...dataArray];
+      // 2. วนลูปเพื่อแปลง _n_ ให้กลับเป็น \n (Newline ของจริง) สำหรับตาราง
+      const processedData = dataArray.map((item) => ({
+        ...item,
+        // ถ้ามี field content ให้ replace ตัวแทน _n_ เป็น \n ของจริง
+        content: item.content
+          ? item.content.replace(/_n_/g, "\n")
+          : item.content,
+      }));
 
-      // 5. บันทึก
+      // 3. รวมกับข้อมูลเดิม
+      const newTopics = [...topics, ...processedData];
+
       setTopics(newTopics);
 
-      // (ถ้ามี localStorage ก็เปิดบรรทัดนี้)
-      // localStorage.setItem("medGuideTopics", JSON.stringify(newTopics));
+      // (ถ้ามี localStorage)
+      // localStorage.setItem("medGuideData", JSON.stringify(newTopics));
 
-      setJsonText(""); // ล้างช่องข้อความ
-      alert(`✅ Import สำเร็จ! เพิ่มข้อมูลใหม่ ${dataArray.length} รายการ`);
+      setJsonText("");
+      alert(`✅ Import สำเร็จ! เพิ่มข้อมูล ${processedData.length} รายการ`);
     } catch (error) {
       console.error("Import Error:", error);
-      alert("❌ Format ผิดพลาด! ลองเช็ค JSON จาก Gemini อีกทีครับ");
+      alert(
+        `❌ Format ผิดพลาด! \nสาเหตุ: ${error.message}\nลองเช็คว่าก๊อปปี้ปีกกามาครบไหม`
+      );
     }
   };
 
