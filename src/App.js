@@ -65,15 +65,15 @@ import {
 const getImageUrl = (url) => {
   if (!url) return null;
   // ถ้าไม่ใช่ลิงก์ (เช่น เป็นข้อความเฉยๆ) ให้คืนค่าเดิม
-  if (!url.startsWith('http')) return url;
-  
+  if (!url.startsWith("http")) return url;
+
   // ถ้าเป็นลิงก์ Google Drive ให้แปลง
-  if (url.includes('drive.google.com') && url.includes('/file/d/')) {
+  if (url.includes("drive.google.com") && url.includes("/file/d/")) {
     try {
-      const id = url.split('/file/d/')[1].split('/')[0];
+      const id = url.split("/file/d/")[1].split("/")[0];
       return `https://drive.google.com/uc?export=view&id=${id}`;
     } catch (e) {
-      return url; 
+      return url;
     }
   }
   return url;
@@ -187,6 +187,7 @@ const CommentSection = ({ db, appId, system, topic }) => {
                 <img
                   src={getImageUrl ? getImageUrl(c.text) : c.text}
                   alt="attachment"
+                  referrerPolicy="no-referrer"
                   className="max-h-48 rounded-lg border border-gray-200 object-contain bg-gray-50"
                   onError={(e) => {
                     // ถ้าโหลดรูปไม่ได้ ให้โชว์ลิงก์แทน
@@ -2209,6 +2210,7 @@ export default function MedGuideApp() {
                 <img
                   src={item.image}
                   alt={item.topic}
+                  referrerPolicy="no-referrer"
                   className="w-full h-auto"
                 />
               </div>
