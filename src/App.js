@@ -1949,7 +1949,7 @@ export default function MedGuideApp() {
     downloadAnchorNode.remove();
   };
 
-  // --- 🟢 ฟังก์ชัน Import (ฉบับอัปเกรด: แก้ _n_ และบันทึกลง Firebase) ---
+  // --- 🟢 ฟังก์ชัน Import (ฉบับแก้ n| แบบเจาะจง) ---
   const handlePasteImport = async () => {
     try {
       if (!jsonText.trim()) {
@@ -1957,26 +1957,22 @@ export default function MedGuideApp() {
         return;
       }
 
-      // 1. แปลง Text เป็น JSON (พร้อมกันเหนียว ลบตัวอักษรขยะ)
+      // 1. แปลง Text เป็น JSON
       let importedData;
       try {
+        // ล้างตัวอักษรขยะและแก้ \n ให้เป็น \\n ก่อน parse
         const fixedText = jsonText
           .replace(/[\u0000-\u0019]+/g, "")
           .replace(/\\n/g, "\\n");
         importedData = JSON.parse(fixedText);
       } catch (e) {
-        alert(
-          "JSON Format ไม่ถูกต้อง: กรุณาเช็คปีกกา {} หรือลูกน้ำ , ให้ครบครับ"
-        );
+        alert("JSON Format ไม่ถูกต้อง: เช็คปีกกา {} หรือลูกน้ำ , ให้ครบ");
         return;
       }
 
       const dataArray = Array.isArray(importedData)
         ? importedData
         : [importedData];
-
-      // 2. เตรียม Batch Write (เขียนลง Firebase ทีเดียวหลายรายการ)
-      // ต้อง import { writeBatch } from "firebase/firestore"; ด้านบนด้วยนะครับ (ซึ่งมีอยู่แล้วใน Code คุณ)
       const batch = writeBatch(db);
       const collectionRef = collection(
         db,
@@ -1991,20 +1987,31 @@ export default function MedGuideApp() {
       dataArray.forEach((item) => {
         let fixedSummary = item.summary || "";
 
-        // ⭐ จุดสำคัญ: คำสั่งแก้ " n " หรือ "_n_" ให้เป็น Enter ของจริง เพื่อให้ตารางขึ้น
+        // ⭐⭐⭐ Super Fix V.4 (แก้ n| แบบครอบจักรวาล) ⭐⭐⭐
         fixedSummary = fixedSummary
-          .replace(/_n_/g, "\n") // แก้ _n_ (ตาม Prompt)
-          .replace(/ n /g, "\n") // แก้ n ที่มีเว้นวรรค (ที่ AI ชอบทำผิด)
-          .replace(/\\n/g, "\n"); // แก้ \n แบบ Text
+          // 1. แก้ |n| หรือ | n | ที่อยู่ระหว่างกลางตาราง (เจอบ่อยสุด)
+          .replace(/\|\s*n\s*\|/g, "|\n|")
 
-        // สร้าง Doc ใหม่ใน Firebase
+          // 2. แก้ n| ที่อยู่หน้าหัวตาราง (โดยเช็คว่าข้างหน้าต้องไม่ใช่ตัวอักษร)
+          // เช่น: </b>n| หรือ \n\nn| หรือ  n| (space)
+          .replace(/(^|[\s\r\n>])n\|/g, "$1\n|")
+
+          // 3. แก้ _n_ (ตาม Prompt ใหม่)
+          .replace(/_n_/g, "\n")
+
+          // 4. แก้ \n ที่มาเป็นข้อความ
+          .replace(/\\n/g, "\n");
+
+        console.log("Original:", item.summary);
+        console.log("Fixed:", fixedSummary); // กด F12 ดู log ได้ว่าแก้ถูกไหม
+
         const newDocRef = doc(collectionRef);
         batch.set(newDocRef, {
           system: item.system || "Uncategorized",
           topic: item.topic || "Untitled",
           yield_score: item.yield_score || 1,
           keywords: item.keywords || "",
-          summary: fixedSummary, // ใช้ตัวที่แก้แล้ว
+          summary: fixedSummary,
           exam_tip: item.exam_tip || "",
           image: item.image || "",
           createdAt: new Date().toISOString(),
@@ -2012,12 +2019,11 @@ export default function MedGuideApp() {
         count++;
       });
 
-      // 3. ยืนยันการบันทึก (Commit)
       await batch.commit();
 
       showToast(`✅ Import สำเร็จ! เพิ่มข้อมูล ${count} รายการ`, "success");
-      setJsonText(""); // ล้างช่องข้อความ
-      setShowAdmin(false); // ปิดหน้า Admin ดูผลลัพธ์
+      setJsonText("");
+      setShowAdmin(false);
     } catch (error) {
       console.error("Import Error:", error);
       showToast(`❌ เกิดข้อผิดพลาด: ${error.message}`, "error");
@@ -2098,18 +2104,32 @@ export default function MedGuideApp() {
   const TopicCard = ({ item, isRead, onToggle, onZoom }) => {
     const [expanded, setExpanded] = useState(false);
 
-    // --- ฟังก์ชัน renderSummary (มีตาราง + แยก HTML) ---
+    // --- ฟังก์ชัน renderSummary (ฉบับแก้ที่ปลายเหตุ: ซ่อมข้อความก่อนแสดงผลเสมอ) ---
     const renderSummary = (text) => {
       if (!text) return null;
 
-      // 1. แปลง HTML Tags
-      let processedText = text
+      // 🟢 1. Auto-Fixer: ซ่อมตัวอักษร n| หรือ _n_ ให้เป็น Enter เดี๋ยวนี้!
+      // (ไม่สนว่า Database เก็บมายังไง เราแก้ให้ถูกตรงนี้เลย)
+      let fixedText = text
+        // แก้ | n | หรือ |n| ตรงกลางตาราง
+        .replace(/\|\s*n\s*\|/g, "|\n|")
+        // แก้ n| ที่อยู่หน้าหัวตาราง (ถ้าข้างหน้าไม่ใช่ภาษาอังกฤษ ให้ตบลงบรรทัดใหม่ทันที)
+        .replace(/([^a-zA-Z0-9])n\|/g, "$1\n|")
+        // แก้ _n_ (ตาม Prompt ใหม่)
+        .replace(/_n_/g, "\n")
+        // แก้ n ที่มีเว้นวรรค
+        .replace(/ n /g, "\n")
+        // แก้ \n ที่มาเป็นข้อความดิบ
+        .replace(/\\n/g, "\n");
+
+      // 🟢 2. แปลง HTML Tags (<b>, <i>) เป็น Markdown
+      let processedText = fixedText
         .replace(/<b>/g, "**")
         .replace(/<\/b>/g, "**")
         .replace(/<i>/g, "*")
         .replace(/<\/i>/g, "*");
 
-      // 2. ฟังก์ชันย่อยแปลง Markdown
+      // 3. ฟังก์ชันย่อยแปลง Markdown
       const renderFormattedText = (str) => {
         if (!str) return null;
         return str.split("\n").map((line, lineIdx) => (
@@ -2135,10 +2155,12 @@ export default function MedGuideApp() {
         ));
       };
 
-      // 3. เช็คหาตาราง
+      // 4. เช็คหาตาราง (Logic แยกตารางออกจากเนื้อหา)
       const lines = processedText.split("\n");
       let tableStartIndex = -1;
+
       for (let i = 0; i < lines.length; i++) {
+        // หาเส้นคั่น |---| หรือ |--- หรือ | --- |
         if (
           lines[i].includes("|") &&
           lines[i + 1] &&
@@ -2160,14 +2182,17 @@ export default function MedGuideApp() {
       const introText = lines.slice(0, tableStartIndex).join("\n").trim();
       const tableLines = lines.slice(tableStartIndex);
 
-      // สร้างตารางเก็บไว้
+      // สร้างตารางเก็บไว้ (เพื่อส่งไป Modal หรือแสดงผล)
       const TableContent = (
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <tbody className="bg-white divide-y divide-gray-200">
             {tableLines.map((row, index) => {
+              // กรองเส้นคั่นออก
               if (row.trim().includes("---") || !row.includes("|")) return null;
+
               const cells = row.split("|").filter((c) => c.trim() !== "");
               if (cells.length === 0) return null;
+
               const isHeader = index === 0;
               return (
                 <tr
@@ -2198,12 +2223,11 @@ export default function MedGuideApp() {
           {introText && <div>{renderFormattedText(introText)}</div>}
 
           <div className="relative group">
-            {/* ปุ่มขยายตาราง */}
             <div className="flex justify-end mb-1">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onZoom(TableContent);
+                  onZoom && onZoom(TableContent); // เช็ค onZoom ก่อนเรียกใช้ กัน error
                 }}
                 className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition-colors border border-blue-200"
               >
@@ -2265,7 +2289,7 @@ export default function MedGuideApp() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              {/* 🟢 ส่วนที่เอากลับมา: ปุ่ม Admin (แก้ไข/ลบ) */}
+              {/* ปุ่ม Admin (ยังอยู่ครบนะครับ) */}
               {showAdmin && (
                 <>
                   <button
@@ -2312,6 +2336,7 @@ export default function MedGuideApp() {
                 <h4 className="flex items-center gap-2 text-sm font-semibold text-blue-800 mb-2">
                   <FileText size={16} /> สรุป High-Yield
                 </h4>
+                {/* เรียกใช้ renderSummary ที่มี Auto-Fixer */}
                 {renderSummary(item.summary)}
               </div>
               <div className="flex flex-col justify-between gap-4">
