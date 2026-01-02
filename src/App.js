@@ -1947,7 +1947,7 @@ export default function MedGuideApp() {
     downloadAnchorNode.remove();
   };
 
-  // แทนที่ฟังก์ชัน handlePasteImport เดิมด้วยอันนี้
+  // --- 🟢 ฟังก์ชัน Import (ฉบับอัปเกรด: แก้ _n_ และบันทึกลง Firebase) ---
   const handlePasteImport = async () => {
     try {
       if (!jsonText.trim()) {
@@ -1955,17 +1955,16 @@ export default function MedGuideApp() {
         return;
       }
 
-      // 1. แปลง Text เป็น JSON
+      // 1. แปลง Text เป็น JSON (พร้อมกันเหนียว ลบตัวอักษรขยะ)
       let importedData;
       try {
-        // แก้ไขกรณี Copy มาแล้วติดตัวอักษรแปลกๆ หรือ Newline ผิด format
         const fixedText = jsonText
           .replace(/[\u0000-\u0019]+/g, "")
           .replace(/\\n/g, "\\n");
         importedData = JSON.parse(fixedText);
       } catch (e) {
         alert(
-          "JSON Format ไม่ถูกต้อง กรุณาตรวจสอบปีกกา {} หรือเครื่องหมายจุลภาค ,"
+          "JSON Format ไม่ถูกต้อง: กรุณาเช็คปีกกา {} หรือลูกน้ำ , ให้ครบครับ"
         );
         return;
       }
@@ -1975,6 +1974,7 @@ export default function MedGuideApp() {
         : [importedData];
 
       // 2. เตรียม Batch Write (เขียนลง Firebase ทีเดียวหลายรายการ)
+      // ต้อง import { writeBatch } from "firebase/firestore"; ด้านบนด้วยนะครับ (ซึ่งมีอยู่แล้วใน Code คุณ)
       const batch = writeBatch(db);
       const collectionRef = collection(
         db,
@@ -1987,13 +1987,13 @@ export default function MedGuideApp() {
 
       let count = 0;
       dataArray.forEach((item) => {
-        // Data Cleaning: แปลง |n| หรือ _n_ ให้เป็น \n จริงๆ สำหรับแสดงผลตาราง
         let fixedSummary = item.summary || "";
 
-        // ถ้าใน JSON ใช้ "n" เฉยๆ (อันตราย) ให้แก้เฉพาะที่อยู่ในตาราง
-        // แต่แนะนำให้ JSON ต้นทางส่งมาเป็น \n (หรือ \\n) จะดีที่สุด
-        // บรรทัดนี้จะแปลง \n ที่เป็น text ให้เป็น new line character
-        fixedSummary = fixedSummary.split("\\n").join("\n");
+        // ⭐ จุดสำคัญ: คำสั่งแก้ " n " หรือ "_n_" ให้เป็น Enter ของจริง เพื่อให้ตารางขึ้น
+        fixedSummary = fixedSummary
+          .replace(/_n_/g, "\n") // แก้ _n_ (ตาม Prompt)
+          .replace(/ n /g, "\n") // แก้ n ที่มีเว้นวรรค (ที่ AI ชอบทำผิด)
+          .replace(/\\n/g, "\n"); // แก้ \n แบบ Text
 
         // สร้าง Doc ใหม่ใน Firebase
         const newDocRef = doc(collectionRef);
@@ -2002,20 +2002,20 @@ export default function MedGuideApp() {
           topic: item.topic || "Untitled",
           yield_score: item.yield_score || 1,
           keywords: item.keywords || "",
-          summary: fixedSummary,
+          summary: fixedSummary, // ใช้ตัวที่แก้แล้ว
           exam_tip: item.exam_tip || "",
           image: item.image || "",
-          createdAt: new Date().toISOString(), // เพิ่ม Timestamp
+          createdAt: new Date().toISOString(),
         });
         count++;
       });
 
-      // 3. ยืนยันการบันทึก
+      // 3. ยืนยันการบันทึก (Commit)
       await batch.commit();
 
       showToast(`✅ Import สำเร็จ! เพิ่มข้อมูล ${count} รายการ`, "success");
       setJsonText(""); // ล้างช่องข้อความ
-      setShowAdmin(false); // ปิดหน้า Admin (เพื่อให้เห็นผลลัพธ์)
+      setShowAdmin(false); // ปิดหน้า Admin ดูผลลัพธ์
     } catch (error) {
       console.error("Import Error:", error);
       showToast(`❌ เกิดข้อผิดพลาด: ${error.message}`, "error");
