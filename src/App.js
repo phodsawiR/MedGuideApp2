@@ -1651,6 +1651,7 @@ export default function MedGuideApp() {
   const [minYield, setMinYield] = useState(3);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Admin Mode State
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showHelp, setShowHelp] = React.useState(false);
   const [newTopic, setNewTopic] = useState({
     system: "Nervous System",
     topic: "",
@@ -2386,13 +2387,37 @@ export default function MedGuideApp() {
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
               />
             </div>
-            <div className="pt-4 border-t border-gray-100">
+            {/* --- 🟢 Footer Sidebar: รวมปุ่ม คลังรูป + คู่มือ + Admin --- */}
+            <div className="p-4 border-t border-gray-200 bg-gray-50 flex flex-col gap-2">
+              {/* 1. ปุ่มคลังรูปภาพ */}
+              <a
+                href="https://drive.google.com/drive/u/0/folders/1ZP5XyXyEys4IZ2_z-Ij1mzoDXyVLi_pP?usp=sharing"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 py-2 text-sm text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg font-bold transition-all shadow-sm"
+              >
+                <ImageIcon size={16} /> คลังรูปภาพ
+              </a>
+
+              {/* 2. ปุ่มคู่มือ */}
+              <button
+                onClick={() => setShowHelp(true)}
+                className="flex items-center justify-center gap-2 py-2 text-sm text-gray-700 bg-white hover:bg-gray-100 border border-gray-300 rounded-lg font-bold transition-all shadow-sm"
+              >
+                <span className="text-base">📖</span> คู่มือการใช้งาน
+              </button>
+
+              {/* 3. ปุ่ม Admin Mode */}
               <button
                 onClick={() => setShowAdmin(!showAdmin)}
-                className="w-full flex items-center justify-center gap-2 py-2 text-sm text-gray-500 hover:text-blue-600 bg-gray-50 hover:bg-blue-50 rounded-lg transition-colors"
+                className={`flex items-center justify-center gap-2 py-2 text-sm border rounded-lg font-bold transition-all shadow-sm ${
+                  showAdmin
+                    ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                    : "bg-gray-800 text-white border-gray-800 hover:bg-gray-900"
+                }`}
               >
-                {showAdmin ? <X size={16} /> : <Database size={16} />}{" "}
-                {showAdmin ? "ปิด Admin Mode" : "Admin Mode (เพิ่มเนื้อหา)"}
+                {showAdmin ? <X size={16} /> : <Database size={16} />}
+                {showAdmin ? "ปิด Admin Mode" : "Admin Mode"}
               </button>
             </div>
           </div>
@@ -2685,37 +2710,6 @@ export default function MedGuideApp() {
             </div>
           </div>
         )}
-        {/* --- 🟢 ส่วนข้อความถึงผู้ใช้งาน (แก้ไขข้อความตรงนี้ได้เลย) --- */}
-        <div className="max-w-3xl mx-auto px-4 pt-6 md:px-8">
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
-            <div className="relative z-10">
-              <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
-                👋 สวัสดีครับเพื่อนๆ! ยินดีต้อนรับสู่ MedGuide
-              </h2>
-              <p className="text-blue-100 text-sm leading-relaxed">
-                เว็บนี้ผมตั้งใจทำขึ้นมาเพื่อรวบรวมสรุป High-Yield
-                สำหรับเตรียมสอบ comprehensive โดยเน้นจุดที่ออกสอบบ่อย (Yield 5
-                ดาว) เป็นหลักครับ กดเปิด adminmode เพิ่ม topic ได้
-                ถ้าที่เพิ่มเป็นคหสต.ว่ามีโอกาสออก ใส่ 1 ดาวไว้
-                เพิ่มรูปเพิ่มตารางได้โดยใช้ prompt markdown table
-                แล้วเอาไปวางในช่อง summary - function ติ๊กว่าอ่านแล้แล้ว
-                มันนlinkกันทุกคน เพราะงั้นอย่ากดดีกว่า
-                <br />
-                <br />
-                📌 <strong>Update:</strong> ตอนนี้เพิ่มฟีเจอร์ Discussion
-                และตารางเปรียบเทียบแล้วนะครับ ใครมีข้อสงสัยตรงไหน
-                พิมพ์ถามทิ้งไว้ได้เลย! ขอให้ทุกคนโชคดีกับการสอบครับ ✌️
-                อย่าอัพรูปความละเอียดสูงเกิน หรือเยอะเกิน แปะลิงค์มาง่ายกว่า
-                เดี๋ยวเมมเต็ม
-              </p>
-            </div>
-            {/* รูปตกแต่งพื้นหลัง (ลายน้ำ) */}
-            <div className="absolute -right-6 -bottom-6 opacity-10 rotate-12">
-              <Stethoscope size={180} />
-            </div>
-          </div>
-        </div>
-        {/* --- จบส่วนข้อความ --- */}
 
         <div className="max-w-3xl mx-auto px-4 py-8 md:px-8">
           <div className="mb-6 flex items-center justify-between">
@@ -2768,6 +2762,61 @@ export default function MedGuideApp() {
           )}
         </div>
       </main>
+      {/* --- 🟢 Modal Popup คู่มือการใช้งาน --- */}
+      {showHelp && (
+        <div
+          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onClick={() => setShowHelp(false)}
+        >
+          <div
+            className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-2xl shadow-2xl "
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* ปุ่มปิด X มุมขวาบน */}
+            <button
+              onClick={() => setShowHelp(false)}
+              className="absolute top-4 right-4 z-20 bg-black/10 hover:bg-black/20 text-black rounded-full p-1 transition-colors"
+            >
+              <X size={24} />
+            </button>
+
+            {/* 👇👇 วางโค้ดการ์ดสีฟ้าที่คุณ Cut มา ตรงนี้เลยครับ 👇👇 */}
+            <div className="max-w-3xl mx-auto px-4 pt-6 md:px-8">
+              <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                <div className="relative z-10">
+                  <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
+                    👋 สวัสดีครับเพื่อนๆ! ยินดีต้อนรับสู่ MedGuide
+                  </h2>
+                  <p className="text-blue-100 text-sm leading-relaxed">
+                    เว็บนี้ผมตั้งใจทำขึ้นมาเพื่อรวบรวมสรุป High-Yield
+                    สำหรับเตรียมสอบ comprehensive โดยเน้นจุดที่ออกสอบบ่อย (Yield
+                    5 ดาว) เป็นหลักครับ กดเปิด adminmode เพิ่ม topic ได้
+                    ถ้าที่เพิ่มเป็นคหสต.ว่ามีโอกาสออก ใส่ 1 ดาวไว้
+                    เพิ่มรูปเพิ่มตารางได้โดยใช้ prompt markdown table
+                    แล้วเอาไปวางในช่อง summary - function ติ๊กว่าอ่านแล้แล้ว
+                    มันนlinkกันทุกคน เพราะงั้นอย่ากดดีกว่า
+                    <br />
+                    <br />
+                    📌 <strong>Update:</strong> ตอนนี้เพิ่มฟีเจอร์ Discussion
+                    และตารางเปรียบเทียบแล้วนะครับ ใครมีข้อสงสัยตรงไหน
+                    พิมพ์ถามทิ้งไว้ได้เลย! ขอให้ทุกคนโชคดีกับการสอบครับ ✌️{" "}
+                    <strong>
+                      ถ้าจะอัพรูปกดคลังรูป เอารูปขึ้น gg drive แล้วเอาลิงค์มาแปะ
+                      อัพตรงๆเดี๋ยวเมมเต็มื
+                    </strong>
+                  </p>
+                </div>
+                {/* รูปตกแต่งพื้นหลัง (ลายน้ำ) */}
+                <div className="absolute -right-6 -bottom-6 opacity-10 rotate-12">
+                  <Stethoscope size={180} />
+                </div>
+              </div>
+            </div>
+
+            {/* 👆👆 ------------------------------------------- 👆👆 */}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
