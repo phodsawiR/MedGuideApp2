@@ -2107,27 +2107,27 @@ export default function MedGuideApp() {
       if (!text) return null;
 
       // 🟢 Auto-Fixer: ซ่อมตัวอักษร n| ให้เป็นตารางสวยงาม (ฉบับแก้ตาม Console Log)
-    let fixedText = text || "";
-    
-    fixedText = fixedText
-      // 1. แปลง \n text ให้เป็น Enter จริง
-      .replace(/\\n/g, "\n")
+      let fixedText = text || "";
 
-      // ⭐⭐⭐ เพิ่มบรรทัดนี้ด่วนครับ! (แก้ *n*| ที่เห็นใน Console)
-      .replace(/\*n\*\|/g, "\n|")
+      fixedText = fixedText
+        // 1. แปลง \n text ให้เป็น Enter จริง
+        .replace(/\\n/g, "\n")
 
-      // 2. เจาะจงแก้เคส 'Yield):n|' หรือ 'Concept:n|' (เพิ่ม > เพื่อดัก HTML Tag)
-      .replace(/([:)>}])\s*n\s*\|/g, "$1\n|")
+        // ⭐⭐⭐ เพิ่มบรรทัดนี้ด่วนครับ! (แก้ *n*| ที่เห็นใน Console)
+        .replace(/\*n\*\|/g, "\n|")
 
-      // 3. แก้ |n| ตรงกลางตาราง
-      .replace(/\|\s*n\s*\|/g, "|\n|")
+        // 2. เจาะจงแก้เคส 'Yield):n|' หรือ 'Concept:n|' (เพิ่ม > เพื่อดัก HTML Tag)
+        .replace(/([:)>}])\s*n\s*\|/g, "$1\n|")
 
-      // 4. แก้ n| ทั่วไป
-      .replace(/([^a-zA-Z0-9])n\|/g, "$1\n|")
+        // 3. แก้ |n| ตรงกลางตาราง
+        .replace(/\|\s*n\s*\|/g, "|\n|")
 
-      // 5. เก็บตกพวก _n_
-      .replace(/_n_/g, "\n")
-      .replace(/ n /g, "\n");
+        // 4. แก้ n| ทั่วไป
+        .replace(/([^a-zA-Z0-9])n\|/g, "$1\n|")
+
+        // 5. เก็บตกพวก _n_
+        .replace(/_n_/g, "\n")
+        .replace(/ n /g, "\n");
 
       // 🟢 2. แปลง HTML Tags (<b>, <i>) เป็น Markdown
       let processedText = fixedText
@@ -2508,6 +2508,15 @@ export default function MedGuideApp() {
             </div>
             {/* --- 🟢 Footer Sidebar: รวมปุ่ม คลังรูป + คู่มือ + Admin --- */}
             <div className="p-4 border-t border-gray-200 bg-gray-50 flex flex-col gap-2">
+              {/* 🟢 ปุ่ม Gemini Helper */}
+              <a
+                href="https://gemini.google.com/gem/1JYjKxdyeRIuc4o-CMX2oMKOfjmsWuX5H?usp=sharing"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 py-2 text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg font-bold transition-all shadow-sm"
+              >
+                <Zap size={16} /> ผู้ช่วยสร้างโจทย์ (Gemini)
+              </a>
               {/* 1. ปุ่มคลังรูปภาพ */}
               <a
                 href="https://drive.google.com/drive/u/0/folders/1ZP5XyXyEys4IZ2_z-Ij1mzoDXyVLi_pP?usp=sharing"
