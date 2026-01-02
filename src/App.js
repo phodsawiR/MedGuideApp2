@@ -2210,7 +2210,7 @@ export default function MedGuideApp() {
             {item.image && (
               <div className="mb-4 rounded-lg overflow-hidden border border-gray-200 bg-white">
                 <img
-                  src={item.image}
+                  src={getImageUrl(item.image)}
                   alt={item.topic}
                   referrerPolicy="no-referrer"
                   className="w-full h-auto"
