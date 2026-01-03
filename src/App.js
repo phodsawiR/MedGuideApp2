@@ -2519,7 +2519,7 @@ export default function MedGuideApp() {
               </a>
               {/* 1. ปุ่มคลังรูปภาพ */}
               <a
-                href="https://drive.google.com/drive/u/0/folders/1ZP5XyXyEys4IZ2_z-Ij1mzoDXyVLi_pP?usp=sharing"
+                href="https://drive.google.com/drive/folders/1ZPSXyXyEys4IZ2_z-Ij1mzoDXyVLi_pP"
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center justify-center gap-2 py-2 text-sm text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg font-bold transition-all shadow-sm"
@@ -2761,7 +2761,7 @@ export default function MedGuideApp() {
 
                     {/* 🟢 ปุ่มทางลัด (อย่าลืมเอาลิงก์ Folder ของคุณมาใส่ตรง href นะครับ) */}
                     <a
-                      href="https://drive.google.com/drive/folders/1ZPSXyXyEys4IZ2_z-Ij1mzoDXyVLi_pP?usp=sharing"
+                      href="https://drive.google.com/drive/folders/1ZPSXyXyEys4IZ2_z-Ij1mzoDXyVLi_pP"
                       target="_blank"
                       rel="noreferrer"
                       className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 font-semibold border border-blue-200 px-2 py-0.5 rounded hover:bg-blue-50 transition-colors"
