@@ -2186,15 +2186,26 @@ export default function MedGuideApp() {
         );
       }
 
-      const introText = lines.slice(0, tableStartIndex).join("\n").trim();
-      const tableLines = lines.slice(tableStartIndex);
+      // 🟢 1. หาจุดจบของตาราง (เพิ่มใหม่: หาบรรทัดที่ไม่มี | เพื่อหยุดตาราง)
+      let tableEndIndex = lines.length;
+      for (let i = tableStartIndex + 2; i < lines.length; i++) {
+        // ถ้าบรรทัดนั้นไม่มีเครื่องหมาย | และไม่ใช่บรรทัดว่าง ให้ถือว่าจบตาราง
+        if (!lines[i].trim().includes("|") && lines[i].trim() !== "") {
+          tableEndIndex = i;
+          break;
+        }
+      }
 
-      // สร้างตารางเก็บไว้ (เพื่อส่งไป Modal หรือแสดงผล)
+      // 🟢 2. แยกส่วนข้อความ: ก่อนตาราง / ตัวตาราง / หลังตาราง
+      const introText = lines.slice(0, tableStartIndex).join("\n").trim();
+      const tableLines = lines.slice(tableStartIndex, tableEndIndex);
+      const postText = lines.slice(tableEndIndex).join("\n").trim(); // ข้อความหลังตาราง
+
+      // สร้างตารางเก็บไว้
       const TableContent = (
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <tbody className="bg-white divide-y divide-gray-200">
             {tableLines.map((row, index) => {
-              // กรองเส้นคั่นออก
               if (row.trim().includes("---") || !row.includes("|")) return null;
 
               const cells = row.split("|").filter((c) => c.trim() !== "");
@@ -2227,14 +2238,16 @@ export default function MedGuideApp() {
 
       return (
         <div className="text-sm text-gray-700 leading-relaxed space-y-4">
+          {/* ส่วนนำ */}
           {introText && <div>{renderFormattedText(introText)}</div>}
 
+          {/* ส่วนตาราง */}
           <div className="relative group">
             <div className="flex justify-end mb-1">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onZoom && onZoom(TableContent); // เช็ค onZoom ก่อนเรียกใช้ กัน error
+                  onZoom && onZoom(TableContent);
                 }}
                 className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition-colors border border-blue-200"
               >
@@ -2245,6 +2258,13 @@ export default function MedGuideApp() {
               {TableContent}
             </div>
           </div>
+
+          {/* 🟢 ส่วนข้อความหลังตาราง (เพิ่มใหม่) */}
+          {postText && (
+            <div className="mt-4 pt-2 border-t border-gray-100 border-dashed">
+              {renderFormattedText(postText)}
+            </div>
+          )}
         </div>
       );
     };
