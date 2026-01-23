@@ -1941,7 +1941,7 @@ const TopicCard = ({
                 ) : (
                   <>
                     <div className="w-4 h-4 rounded-full border-2 border-white/40" />{" "}
-                    เช็คว่าอ่านแล้ว
+                    เน้น
                   </>
                 )}
               </button>
