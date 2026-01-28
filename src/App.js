@@ -1706,11 +1706,56 @@ const TopicCard = ({
       .replace(/<i>/g, "*")
       .replace(/<\/i>/g, "*");
 
+    // 🟢 1. สร้างตัวแปลงรหัส LaTeX (วางแทนที่ของเดิม)
+    const latexMap = {
+      "\\Delta": "Δ",
+      "\\alpha": "α",
+      "\\beta": "β",
+      "\\gamma": "γ",
+      "\\theta": "θ",
+      "\\mu": "μ",
+      "\\pi": "π",
+      "\\rightarrow": "→",
+      "\\leftarrow": "←",
+      "\\uparrow": "↑",
+      "\\downarrow": "↓",
+      "\\approx": "≈",
+      "\\neq": "≠",
+      "\\leq": "≤",
+      "\\geq": "≥",
+      "\\pm": "±",
+      "\\infty": "∞",
+      "^o": "°",
+    };
+
+    const parseLatex = (mathStr) => {
+      let result = mathStr;
+      Object.keys(latexMap).forEach((key) => {
+        result = result.split(key).join(latexMap[key]);
+      });
+      return result;
+    };
+
+    // 🟢 2. ฟังก์ชันแสดงผลใหม่ (รองรับ $...$, ตัวหนา, ตัวเอียง)
     const renderFormattedText = (str) => {
       if (!str) return null;
       return str.split("\n").map((line, lineIdx) => (
         <div key={lineIdx} className="mb-1 last:mb-0 min-h-[1.2em]">
-          {line.split(/(\*\*.*?\*\*|\*.*?\*)/g).map((part, i) => {
+          {line.split(/(\$.*?\$|\*\*.*?\*\*|\*.*?\*)/g).map((part, i) => {
+            // 👉 ดักจับ LaTeX ($...$)
+            if (part.startsWith("$") && part.endsWith("$")) {
+              const content = part.slice(1, -1);
+              return (
+                <span
+                  key={i}
+                  className="font-serif italic text-slate-800 bg-slate-100 px-1 rounded"
+                >
+                  {parseLatex(content)}
+                </span>
+              );
+            }
+
+            // 👉 ตัวหนา (**...**)
             if (part.startsWith("**") && part.endsWith("**")) {
               return (
                 <strong key={i} className="text-blue-700 font-semibold">
@@ -1718,6 +1763,8 @@ const TopicCard = ({
                 </strong>
               );
             }
+
+            // 👉 ตัวเอียง (*...*)
             if (part.startsWith("*") && part.endsWith("*")) {
               return (
                 <em key={i} className="text-gray-600 italic">
@@ -1725,12 +1772,12 @@ const TopicCard = ({
                 </em>
               );
             }
+
             return part;
           })}
         </div>
       ));
     };
-
     const lines = processedText.split("\n");
     let tableStartIndex = -1;
     for (let i = 0; i < lines.length; i++) {
