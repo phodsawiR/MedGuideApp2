@@ -1706,12 +1706,13 @@ const TopicCard = ({
       .replace(/<i>/g, "*")
       .replace(/<\/i>/g, "*");
 
-    // 🟢 1. สร้างตัวแปลงรหัส LaTeX (วางแทนที่ของเดิม)
+    // 🟢 1. อัปเกรด Latex Map (เพิ่ม lambda, K_m, V_max แบบ Unicode)
     const latexMap = {
       "\\Delta": "Δ",
       "\\alpha": "α",
       "\\beta": "β",
       "\\gamma": "γ",
+      "\\lambda": "λ", // ✅ เพิ่ม lambda
       "\\theta": "θ",
       "\\mu": "μ",
       "\\pi": "π",
@@ -1726,6 +1727,12 @@ const TopicCard = ({
       "\\pm": "±",
       "\\infty": "∞",
       "^o": "°",
+      // ✅ เพิ่ม Subscript (ตัวห้อย)
+      K_m: "Kₘ",
+      "V_{max}": "Vₘₐₓ",
+      "_{max}": "ₘₐₓ",
+      CO_2: "CO₂",
+      H_2O: "H₂O",
     };
 
     const parseLatex = (mathStr) => {
@@ -1736,45 +1743,51 @@ const TopicCard = ({
       return result;
     };
 
-    // 🟢 2. ฟังก์ชันแสดงผลใหม่ (รองรับ $...$, ตัวหนา, ตัวเอียง)
+    // 🟢 2. สร้างฟังก์ชันย่อยแบบ Recursive (เพื่อให้ ** ตัวหนา ** ครอบ $ สมการ $ ได้)
+    const renderInlineContent = (text) => {
+      const parts = text.split(/(\$.*?\$|\*\*.*?\*\*|\*.*?\*)/g);
+      return parts.map((part, index) => {
+        // 👉 เจอสมการ $...$
+        if (part.startsWith("$") && part.endsWith("$")) {
+          const content = part.slice(1, -1);
+          return (
+            <span
+              key={index}
+              className="font-serif italic px-1 rounded bg-slate-100/50"
+            >
+              {parseLatex(content)}
+            </span>
+          );
+        }
+
+        // 👉 เจอตัวหนา **...** (เรียกตัวเองซ้ำ เพื่อให้ข้างในเป็นสมการได้!)
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return (
+            <strong key={index} className="text-blue-700 font-semibold">
+              {renderInlineContent(part.slice(2, -2))}
+            </strong>
+          );
+        }
+
+        // 👉 เจอตัวเอียง *...* (เรียกตัวเองซ้ำ)
+        if (part.startsWith("*") && part.endsWith("*")) {
+          return (
+            <em key={index} className="text-gray-600 italic">
+              {renderInlineContent(part.slice(1, -1))}
+            </em>
+          );
+        }
+
+        return part;
+      });
+    };
+
+    // 🟢 3. ฟังก์ชันหลักเรียกใช้ตัวข้างบน
     const renderFormattedText = (str) => {
       if (!str) return null;
       return str.split("\n").map((line, lineIdx) => (
         <div key={lineIdx} className="mb-1 last:mb-0 min-h-[1.2em]">
-          {line.split(/(\$.*?\$|\*\*.*?\*\*|\*.*?\*)/g).map((part, i) => {
-            // 👉 ดักจับ LaTeX ($...$)
-            if (part.startsWith("$") && part.endsWith("$")) {
-              const content = part.slice(1, -1);
-              return (
-                <span
-                  key={i}
-                  className="font-serif italic text-slate-800 bg-slate-100 px-1 rounded"
-                >
-                  {parseLatex(content)}
-                </span>
-              );
-            }
-
-            // 👉 ตัวหนา (**...**)
-            if (part.startsWith("**") && part.endsWith("**")) {
-              return (
-                <strong key={i} className="text-blue-700 font-semibold">
-                  {part.slice(2, -2)}
-                </strong>
-              );
-            }
-
-            // 👉 ตัวเอียง (*...*)
-            if (part.startsWith("*") && part.endsWith("*")) {
-              return (
-                <em key={i} className="text-gray-600 italic">
-                  {part.slice(1, -1)}
-                </em>
-              );
-            }
-
-            return part;
-          })}
+          {renderInlineContent(line)}
         </div>
       ));
     };
