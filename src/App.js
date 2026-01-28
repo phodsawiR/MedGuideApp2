@@ -1823,7 +1823,22 @@ const TopicCard = ({
       </div>
     );
   };
-
+  // --- 🟢 ส่วนที่ต้องวางเพิ่ม 1: ฟังก์ชันแปลงตัวหนา ---
+  const renderExamTip = (text) => {
+    if (!text) return null;
+    // แปลง <b> เป็น ** แล้วจับคู่ทำตัวหนา
+    const formatted = text.replace(/<b>/g, "**").replace(/<\/b>/g, "**");
+    return formatted.split(/(\*\*.*?\*\*)/g).map((part, i) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return (
+          <strong key={i} className="font-bold text-amber-900">
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      return part;
+    });
+  };
   return (
     <div
       className={`bg-white rounded-xl shadow-sm border transition-all duration-200 ${
@@ -1921,7 +1936,9 @@ const TopicCard = ({
                 <h4 className="flex items-center gap-2 text-sm font-semibold text-amber-800 mb-2">
                   <AlertCircle size={16} /> ข้อควรระวัง / เก็งข้อสอบ
                 </h4>
-                <p className="text-sm text-gray-700">{item.exam_tip}</p>
+                <div className="text-sm text-gray-700">
+                  {renderExamTip(item.exam_tip)}
+                </div>
               </div>
               <button
                 onClick={(e) => {
