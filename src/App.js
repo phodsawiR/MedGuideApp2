@@ -1685,11 +1685,84 @@ const TopicCard = ({
 }) => {
   const [expanded, setExpanded] = React.useState(false);
 
+  // 🟢 1. ตั้งค่าตัวแปลงสัญลักษณ์ (Latex Map)
+  const latexMap = {
+    "\\Delta": "Δ",
+    "\\alpha": "α",
+    "\\beta": "β",
+    "\\gamma": "γ",
+    "\\lambda": "λ",
+    "\\theta": "θ",
+    "\\mu": "μ",
+    "\\pi": "π",
+    "\\rightarrow": "→",
+    "\\leftarrow": "←",
+    "\\uparrow": "↑",
+    "\\downarrow": "↓",
+    "\\approx": "≈",
+    "\\neq": "≠",
+    "\\leq": "≤",
+    "\\geq": "≥",
+    "\\pm": "±",
+    "\\infty": "∞",
+    "^o": "°",
+    K_m: "Kₘ",
+    "V_{max}": "Vₘₐₓ",
+    "_{max}": "ₘₐₓ",
+    CO_2: "CO₂",
+    H_2O: "H₂O",
+  };
+
+  // 🟢 2. เครื่องมือแปลงข้อความอัจฉริยะ (ใช้ได้ทุกที่: Topic, Tip, Content)
+  const renderInlineContent = (
+    text,
+    boldClass = "text-blue-700 font-semibold"
+  ) => {
+    if (!text) return null;
+    const cleanText = text.replace(/<b>/g, "**").replace(/<\/b>/g, "**");
+
+    const parseLatex = (str) => {
+      let res = str;
+      Object.keys(latexMap).forEach(
+        (k) => (res = res.split(k).join(latexMap[k]))
+      );
+      return res;
+    };
+
+    const parts = cleanText.split(/(\$.*?\$|\*\*.*?\*\*|\*.*?\*)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith("$") && part.endsWith("$")) {
+        return (
+          <span
+            key={index}
+            className="font-serif italic px-1 rounded bg-slate-100/50"
+          >
+            {parseLatex(part.slice(1, -1))}
+          </span>
+        );
+      }
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return (
+          <strong key={index} className={boldClass}>
+            {renderInlineContent(part.slice(2, -2), boldClass)}
+          </strong>
+        );
+      }
+      if (part.startsWith("*") && part.endsWith("*")) {
+        return (
+          <em key={index} className="text-gray-600 italic">
+            {renderInlineContent(part.slice(1, -1), boldClass)}
+          </em>
+        );
+      }
+      return part;
+    });
+  };
+
+  // 🟢 3. ฟังก์ชันจัดหน้า Summary และตาราง
   const renderSummary = (text) => {
     if (!text) return null;
     let fixedText = text || "";
-
-    // 🟢 Clean Text & Fix Table Markers & <br/>
     fixedText = fixedText
       .replace(/\\n/g, "\n")
       .replace(/\*n\*\|/g, "\n|")
@@ -1698,100 +1771,9 @@ const TopicCard = ({
       .replace(/([^a-zA-Z0-9])n\|/g, "$1\n|")
       .replace(/_n_/g, "\n")
       .replace(/ n /g, "\n")
-      .replace(/<br\s*\/?>/gi, "\n"); // 👈 แก้ <br/> ให้แล้วครับ
+      .replace(/<br\s*\/?>/gi, "\n");
 
-    let processedText = fixedText
-      .replace(/<b>/g, "**")
-      .replace(/<\/b>/g, "**")
-      .replace(/<i>/g, "*")
-      .replace(/<\/i>/g, "*");
-
-    // 🟢 1. อัปเกรด Latex Map (เพิ่ม lambda, K_m, V_max แบบ Unicode)
-    const latexMap = {
-      "\\Delta": "Δ",
-      "\\alpha": "α",
-      "\\beta": "β",
-      "\\gamma": "γ",
-      "\\lambda": "λ", // ✅ เพิ่ม lambda
-      "\\theta": "θ",
-      "\\mu": "μ",
-      "\\pi": "π",
-      "\\rightarrow": "→",
-      "\\leftarrow": "←",
-      "\\uparrow": "↑",
-      "\\downarrow": "↓",
-      "\\approx": "≈",
-      "\\neq": "≠",
-      "\\leq": "≤",
-      "\\geq": "≥",
-      "\\pm": "±",
-      "\\infty": "∞",
-      "^o": "°",
-      // ✅ เพิ่ม Subscript (ตัวห้อย)
-      K_m: "Kₘ",
-      "V_{max}": "Vₘₐₓ",
-      "_{max}": "ₘₐₓ",
-      CO_2: "CO₂",
-      H_2O: "H₂O",
-    };
-
-    const parseLatex = (mathStr) => {
-      let result = mathStr;
-      Object.keys(latexMap).forEach((key) => {
-        result = result.split(key).join(latexMap[key]);
-      });
-      return result;
-    };
-
-    // 🟢 2. สร้างฟังก์ชันย่อยแบบ Recursive (เพื่อให้ ** ตัวหนา ** ครอบ $ สมการ $ ได้)
-    const renderInlineContent = (text) => {
-      const parts = text.split(/(\$.*?\$|\*\*.*?\*\*|\*.*?\*)/g);
-      return parts.map((part, index) => {
-        // 👉 เจอสมการ $...$
-        if (part.startsWith("$") && part.endsWith("$")) {
-          const content = part.slice(1, -1);
-          return (
-            <span
-              key={index}
-              className="font-serif italic px-1 rounded bg-slate-100/50"
-            >
-              {parseLatex(content)}
-            </span>
-          );
-        }
-
-        // 👉 เจอตัวหนา **...** (เรียกตัวเองซ้ำ เพื่อให้ข้างในเป็นสมการได้!)
-        if (part.startsWith("**") && part.endsWith("**")) {
-          return (
-            <strong key={index} className="text-blue-700 font-semibold">
-              {renderInlineContent(part.slice(2, -2))}
-            </strong>
-          );
-        }
-
-        // 👉 เจอตัวเอียง *...* (เรียกตัวเองซ้ำ)
-        if (part.startsWith("*") && part.endsWith("*")) {
-          return (
-            <em key={index} className="text-gray-600 italic">
-              {renderInlineContent(part.slice(1, -1))}
-            </em>
-          );
-        }
-
-        return part;
-      });
-    };
-
-    // 🟢 3. ฟังก์ชันหลักเรียกใช้ตัวข้างบน
-    const renderFormattedText = (str) => {
-      if (!str) return null;
-      return str.split("\n").map((line, lineIdx) => (
-        <div key={lineIdx} className="mb-1 last:mb-0 min-h-[1.2em]">
-          {renderInlineContent(line)}
-        </div>
-      ));
-    };
-    const lines = processedText.split("\n");
+    const lines = fixedText.split("\n");
     let tableStartIndex = -1;
     for (let i = 0; i < lines.length; i++) {
       if (
@@ -1807,7 +1789,11 @@ const TopicCard = ({
     if (tableStartIndex === -1) {
       return (
         <div className="text-sm text-gray-700 leading-relaxed">
-          {renderFormattedText(processedText)}
+          {lines.map((l, i) => (
+            <div key={i} className="mb-1">
+              {renderInlineContent(l)}
+            </div>
+          ))}
         </div>
       );
     }
@@ -1830,7 +1816,6 @@ const TopicCard = ({
           {tableLines.map((row, index) => {
             if (row.trim().includes("---") || !row.includes("|")) return null;
             const cells = row.split("|").filter((c) => c.trim() !== "");
-            if (cells.length === 0) return null;
             const isHeader = index === 0;
             return (
               <tr
@@ -1846,7 +1831,7 @@ const TopicCard = ({
                     key={i}
                     className="px-4 py-2 border-r last:border-0 border-gray-200 whitespace-pre-wrap"
                   >
-                    {renderFormattedText(cell.trim())}
+                    {renderInlineContent(cell.trim())}
                   </td>
                 ))}
               </tr>
@@ -1858,7 +1843,15 @@ const TopicCard = ({
 
     return (
       <div className="text-sm text-gray-700 leading-relaxed space-y-4">
-        {introText && <div>{renderFormattedText(introText)}</div>}
+        {introText && (
+          <div>
+            {introText.split("\n").map((l, i) => (
+              <div key={i} className="mb-1">
+                {renderInlineContent(l)}
+              </div>
+            ))}
+          </div>
+        )}
         <div className="relative group">
           <div className="flex justify-end mb-1">
             <button
@@ -1877,28 +1870,17 @@ const TopicCard = ({
         </div>
         {postText && (
           <div className="mt-4 pt-2 border-t border-gray-100 border-dashed">
-            {renderFormattedText(postText)}
+            {postText.split("\n").map((l, i) => (
+              <div key={i} className="mb-1">
+                {renderInlineContent(l)}
+              </div>
+            ))}
           </div>
         )}
       </div>
     );
   };
-  // --- 🟢 ส่วนที่ต้องวางเพิ่ม 1: ฟังก์ชันแปลงตัวหนา ---
-  const renderExamTip = (text) => {
-    if (!text) return null;
-    // แปลง <b> เป็น ** แล้วจับคู่ทำตัวหนา
-    const formatted = text.replace(/<b>/g, "**").replace(/<\/b>/g, "**");
-    return formatted.split(/(\*\*.*?\*\*)/g).map((part, i) => {
-      if (part.startsWith("**") && part.endsWith("**")) {
-        return (
-          <strong key={i} className="font-bold text-amber-900">
-            {part.slice(2, -2)}
-          </strong>
-        );
-      }
-      return part;
-    });
-  };
+
   return (
     <div
       className={`bg-white rounded-xl shadow-sm border transition-all duration-200 ${
@@ -1919,12 +1901,13 @@ const TopicCard = ({
               </span>
               {isRead && (
                 <span className="text-xs flex items-center gap-1 font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
-                  <CheckCircle size={10} /> เน้น{" "}
+                  <CheckCircle size={10} /> อ่านแล้ว
                 </span>
               )}
             </div>
+            {/* 🟢 แก้ตรงนี้: ใช้ renderInlineContent กับหัวข้อ Topic */}
             <h3 className="text-lg font-bold text-gray-800 leading-tight">
-              {item.topic}
+              {renderInlineContent(item.topic)}
             </h3>
             <div className="mt-2 flex items-center gap-2">
               <span className="text-xs text-gray-500 font-medium">Yield:</span>
@@ -1996,8 +1979,12 @@ const TopicCard = ({
                 <h4 className="flex items-center gap-2 text-sm font-semibold text-amber-800 mb-2">
                   <AlertCircle size={16} /> ข้อควรระวัง / เก็งข้อสอบ
                 </h4>
+                {/* 🟢 แก้ตรงนี้: ใช้ renderInlineContent กับ Exam Tip */}
                 <div className="text-sm text-gray-700">
-                  {renderExamTip(item.exam_tip)}
+                  {renderInlineContent(
+                    item.exam_tip,
+                    "font-bold text-amber-900"
+                  )}
                 </div>
               </div>
               <button
@@ -2013,12 +2000,12 @@ const TopicCard = ({
               >
                 {isRead ? (
                   <>
-                    <CheckCircle size={18} /> เน้น{" "}
+                    <CheckCircle size={18} /> อ่านทบทวนแล้ว
                   </>
                 ) : (
                   <>
                     <div className="w-4 h-4 rounded-full border-2 border-white/40" />{" "}
-                    เน้น
+                    เช็คว่าอ่านแล้ว
                   </>
                 )}
               </button>
@@ -2034,7 +2021,7 @@ const TopicCard = ({
       )}
     </div>
   );
-}; // 🟢 ปิด TopicCard เรียบร้อย
+};
 
 // --- 3. Main App ---
 export default function MedGuideApp() {
