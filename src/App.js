@@ -2461,7 +2461,7 @@ export default function MedGuideApp() {
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 py-2 text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg font-bold transition-all shadow-sm"
               >
-                <Zap size={16} /> ผู้ช่วยสร้างโจทย์ (Gemini)
+                <Zap size={16} /> ถามAC (Gemini)
               </a>
               <a
                 href="https://drive.google.com/drive/folders/1ZPSXyXyEys4IZ2_z-Ij1mzoDXyVLi_pP"
