@@ -35,6 +35,8 @@ import {
   Shield,
   Atom,
   Smile,
+  Moon,
+  Sun,
   BarChart2,
   Pencil,
   Image as ImageIcon,
@@ -2135,6 +2137,18 @@ const TopicCard = ({
 
 // --- 3. Main App ---
 export default function MedGuideApp() {
+  // 🟢 1. Dark Mode Logic (วางบรรทัดแรกสุดของฟังก์ชัน)
+  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem("theme") === "dark");
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  }, [isDarkMode]);
   const [user, setUser] = useState(null);
   const [zoomContent, setZoomContent] = useState(null);
   const [knowledgeBase, setKnowledgeBase] = useState([]);
@@ -2515,6 +2529,19 @@ export default function MedGuideApp() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-gray-900 relative">
+      {isDarkMode && (
+        <style>{`
+          .min-h-screen, body { background-color: #0f172a !important; color: #e2e8f0 !important; }
+          .bg-white { background-color: #1e293b !important; border-color: #334155 !important; }
+          .bg-slate-50, .bg-gray-50, .bg-blue-50, .bg-green-50, .bg-amber-50 { background-color: #0f172a !important; }
+          .text-gray-900, .text-gray-800, .text-gray-700 { color: #f1f5f9 !important; }
+          .text-gray-600, .text-gray-500 { color: #94a3b8 !important; }
+          .border-gray-200, .border-gray-100 { border-color: #334155 !important; }
+          input, select, textarea { background-color: #1e293b !important; color: white !important; border-color: #475569 !important; }
+          .bg-white.rounded-xl { background-color: #1e293b !important; }
+          aside { background-color: #1e293b !important; border-right-color: #334155 !important; }
+        `}</style>
+      )}
       {notification && (
         <div
           className={`fixed top-4 right-4 z-[60] px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 animate-in slide-in-from-top-5 duration-300 ${
@@ -2687,6 +2714,14 @@ export default function MedGuideApp() {
                 <h1 className="hidden md:block text-2xl font-bold text-gray-800">
                   Medical Knowledge Base 🧠
                 </h1>
+                <button
+                  onClick={() => setIsDarkMode(!isDarkMode)}
+                  className={`ml-3 p-2 rounded-full transition-colors border ${
+                    isDarkMode ? "bg-gray-700 border-gray-600 text-yellow-400" : "bg-white border-gray-200 text-gray-500"
+                  }`}
+                >
+                  {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                </button>
                 {isSyncing && (
                   <div className="flex items-center gap-2 text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
                     <RefreshCw size={12} className="animate-spin" /> Syncing New
