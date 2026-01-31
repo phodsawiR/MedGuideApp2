@@ -1813,7 +1813,12 @@ const TopicCard = ({
     boldClass = "text-blue-700 font-semibold"
   ) => {
     if (!text) return null;
-    const cleanText = text.replace(/<b>/g, "**").replace(/<\/b>/g, "**");
+    // ✅ เพิ่ม replace <i> ให้เป็น * (ตัวเอียง)
+    const cleanText = text
+      .replace(/<b>/g, "**")
+      .replace(/<\/b>/g, "**")
+      .replace(/<i>/g, "*")
+      .replace(/<\/i>/g, "*");
 
     const parseLatex = (str) => {
       let res = str;
