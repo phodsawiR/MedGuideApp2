@@ -2138,7 +2138,9 @@ const TopicCard = ({
 // --- 3. Main App ---
 export default function MedGuideApp() {
   // 🟢 1. Dark Mode Logic (วางบรรทัดแรกสุดของฟังก์ชัน)
-  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem("theme") === "dark");
+  const [isDarkMode, setIsDarkMode] = useState(
+    () => localStorage.getItem("theme") === "dark"
+  );
 
   useEffect(() => {
     if (isDarkMode) {
@@ -2529,18 +2531,85 @@ export default function MedGuideApp() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-gray-900 relative">
+      {/* 🟢 2. Global Dark Mode Styles (สูตร V2: ปรับสีให้อ่านง่าย High Contrast) */}
       {isDarkMode && (
         <style>{`
-          .min-h-screen, body { background-color: #0f172a !important; color: #e2e8f0 !important; }
-          .bg-white { background-color: #1e293b !important; border-color: #334155 !important; }
-          .bg-slate-50, .bg-gray-50, .bg-blue-50, .bg-green-50, .bg-amber-50 { background-color: #0f172a !important; }
-          .text-gray-900, .text-gray-800, .text-gray-700 { color: #f1f5f9 !important; }
-          .text-gray-600, .text-gray-500 { color: #94a3b8 !important; }
-          .border-gray-200, .border-gray-100 { border-color: #334155 !important; }
-          input, select, textarea { background-color: #1e293b !important; color: white !important; border-color: #475569 !important; }
-          .bg-white.rounded-xl { background-color: #1e293b !important; }
-          aside { background-color: #1e293b !important; border-right-color: #334155 !important; }
-        `}</style>
+        /* 1. พื้นหลังหลัก (ดำสนิท) */
+        .min-h-screen, body, aside, main { 
+          background-color: #020617 !important; 
+          color: #e2e8f0 !important; 
+        }
+        
+        /* 2. การ์ด Topic (เทาเข้ม) */
+        .bg-white { 
+          background-color: #0f172a !important; 
+          border-color: #1e293b !important; 
+        }
+        /* แก้พื้นหลังสีเทาอ่อน */
+        .bg-gray-50, .bg-slate-50 { background-color: #020617 !important; }
+
+        /* 3. ✅✅✅ กล่อง Summary สีฟ้า (High-Yield) */
+        div[class*="bg-blue-50"] {
+          background-color: #0f172a !important; /* พื้นหลังมืด */
+          border-color: #1e40af !important;     /* ขอบสีน้ำเงิน */
+        }
+        /* ⚪️ ตัวหนังสือธรรมดา -> สีขาว */
+        div[class*="bg-blue-50"] .text-gray-700, 
+        div[class*="bg-blue-50"] .text-sm { 
+          color: #ffffff !important; 
+        }
+        /* 🔵 ตัวหนา/หัวข้อ -> สีฟ้าสว่าง */
+        div[class*="bg-blue-50"] b, 
+        div[class*="bg-blue-50"] strong,
+        div[class*="bg-blue-50"] h4,
+        div[class*="bg-blue-50"] .text-blue-800,
+        div[class*="bg-blue-50"] .text-blue-900 {
+          color: #60a5fa !important;
+        }
+
+        /* 4. ✅✅✅ กล่อง Caution สีส้ม (ข้อควรระวัง) */
+        div[class*="bg-amber-50"] {
+          background-color: #271c19 !important; /* พื้นหลังน้ำตาลมืด */
+          border-color: #b45309 !important;     /* ขอบสีส้ม */
+        }
+        /* ⚪️ ตัวหนังสือธรรมดา -> สีขาว */
+        div[class*="bg-amber-50"] .text-gray-700,
+        div[class*="bg-amber-50"] .text-sm { 
+          color: #ffffff !important; 
+        }
+        /* 🟡 ตัวหนา/หัวข้อ -> สีทองสว่าง */
+        div[class*="bg-amber-50"] b, 
+        div[class*="bg-amber-50"] strong,
+        div[class*="bg-amber-50"] h4,
+        div[class*="bg-amber-50"] .text-amber-800,
+        div[class*="bg-amber-50"] .text-amber-900 {
+          color: #fbbf24 !important;
+        }
+
+        /* 5. แก้กล่องสูตร Math (pH, Delta G) */
+        span[class*="bg-slate-100"] {
+           background-color: #1e293b !important; 
+           color: #fbbf24 !important; /* สีทอง */
+           border: 1px solid #475569;
+           box-shadow: none !important;
+        }
+
+        /* 6. Input / Search Box */
+        input, select, textarea {
+          background-color: #1e293b !important;
+          color: #ffffff !important;
+          border-color: #334155 !important;
+        }
+
+        /* 7. ตาราง (Table) */
+        table tbody tr { background-color: #0f172a !important; }
+        table td { color: #cbd5e1 !important; border-color: #1e293b !important; }
+        tr[class*="bg-blue-50"] { background-color: #172554 !important; }
+        
+        /* 8. Text General Override */
+        h1, h2, h3, .text-gray-900, .text-gray-800 { color: #f8fafc !important; }
+        .text-gray-600, .text-gray-500, .text-gray-700 { color: #94a3b8 !important; }
+      `}</style>
       )}
       {notification && (
         <div
@@ -2717,7 +2786,9 @@ export default function MedGuideApp() {
                 <button
                   onClick={() => setIsDarkMode(!isDarkMode)}
                   className={`ml-3 p-2 rounded-full transition-colors border ${
-                    isDarkMode ? "bg-gray-700 border-gray-600 text-yellow-400" : "bg-white border-gray-200 text-gray-500"
+                    isDarkMode
+                      ? "bg-gray-700 border-gray-600 text-yellow-400"
+                      : "bg-white border-gray-200 text-gray-500"
                   }`}
                 >
                   {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
