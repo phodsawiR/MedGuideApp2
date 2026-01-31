@@ -1759,10 +1759,11 @@ const TopicCard = ({
     });
   };
 
-  // 🟢 3. ฟังก์ชันจัดหน้า Summary และตาราง
+  // 🟢 ฟังก์ชัน renderSummary แบบรองรับ "หลายตาราง" (Multi-Table Support)
   const renderSummary = (text) => {
     if (!text) return null;
     let fixedText = text || "";
+    // Clean Text (เหมือนเดิม)
     fixedText = fixedText
       .replace(/\\n/g, "\n")
       .replace(/\*n\*\|/g, "\n|")
@@ -1774,109 +1775,119 @@ const TopicCard = ({
       .replace(/<br\s*\/?>/gi, "\n");
 
     const lines = fixedText.split("\n");
-    let tableStartIndex = -1;
+    const blocks = [];
+    let currentBlock = [];
+    let isTableMode = false;
+
+    // 🔄 Loop แยกส่วน Text กับ Table (กี่ตารางก็ได้)
     for (let i = 0; i < lines.length; i++) {
-      if (
-        lines[i].includes("|") &&
+      const line = lines[i];
+      // เช็คว่าเป็นตารางไหม? (ต้องมี | และบรรทัดถัดไปเป็นเส้นคั่น |---|)
+      const hasPipe = line.includes("|");
+      const nextLineIsSeparator =
         lines[i + 1] &&
-        lines[i + 1].includes("---")
-      ) {
-        tableStartIndex = i;
-        break;
+        lines[i + 1].includes("---|") &&
+        lines[i + 1].includes("|");
+      const isTableStart = !isTableMode && hasPipe && nextLineIsSeparator;
+
+      if (isTableMode) {
+        if (hasPipe) {
+          currentBlock.push(line);
+        } else {
+          // จบตาราง -> บันทึก Block ตาราง
+          blocks.push({ type: "table", content: currentBlock });
+          currentBlock = [line]; // เริ่ม Block ข้อความใหม่ทันที
+          isTableMode = false;
+        }
+      } else {
+        if (isTableStart) {
+          // เจอจุดเริ่มตาราง -> บันทึก Block ข้อความก่อนหน้านี้เก็บไว้ก่อน
+          if (currentBlock.length > 0)
+            blocks.push({ type: "text", content: currentBlock });
+          currentBlock = [line]; // เริ่มเก็บข้อมูลตาราง
+          isTableMode = true;
+        } else {
+          currentBlock.push(line);
+        }
       }
     }
+    // เก็บตก Block สุดท้าย
+    if (currentBlock.length > 0)
+      blocks.push({
+        type: isTableMode ? "table" : "text",
+        content: currentBlock,
+      });
 
-    if (tableStartIndex === -1) {
-      return (
-        <div className="text-sm text-gray-700 leading-relaxed">
-          {lines.map((l, i) => (
-            <div key={i} className="mb-1">
-              {renderInlineContent(l)}
-            </div>
-          ))}
-        </div>
-      );
-    }
-
-    let tableEndIndex = lines.length;
-    for (let i = tableStartIndex + 2; i < lines.length; i++) {
-      if (!lines[i].trim().includes("|") && lines[i].trim() !== "") {
-        tableEndIndex = i;
-        break;
-      }
-    }
-
-    const introText = lines.slice(0, tableStartIndex).join("\n").trim();
-    const tableLines = lines.slice(tableStartIndex, tableEndIndex);
-    const postText = lines.slice(tableEndIndex).join("\n").trim();
-
-    const TableContent = (
-      <table className="min-w-full divide-y divide-gray-200 text-sm">
-        <tbody className="bg-white divide-y divide-gray-200">
-          {tableLines.map((row, index) => {
-            if (row.trim().includes("---") || !row.includes("|")) return null;
-            const cells = row.split("|").filter((c) => c.trim() !== "");
-            const isHeader = index === 0;
-            return (
-              <tr
-                key={index}
-                className={
-                  isHeader
-                    ? "bg-blue-50 font-bold text-blue-900"
-                    : "hover:bg-gray-50"
-                }
-              >
-                {cells.map((cell, i) => (
-                  <td
-                    key={i}
-                    className="px-4 py-2 border-r last:border-0 border-gray-200 whitespace-pre-wrap"
-                  >
-                    {renderInlineContent(cell.trim())}
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    );
-
+    // 🎨 ส่วนแสดงผล (Render)
     return (
       <div className="text-sm text-gray-700 leading-relaxed space-y-4">
-        {introText && (
-          <div>
-            {introText.split("\n").map((l, i) => (
-              <div key={i} className="mb-1">
-                {renderInlineContent(l)}
+        {blocks.map((block, idx) => {
+          // กรณีเป็นตาราง
+          if (block.type === "table") {
+            const tableLines = block.content;
+            const TableNode = (
+              <table className="min-w-full divide-y divide-gray-200 text-sm my-2">
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {tableLines.map((row, rIdx) => {
+                    if (row.trim().includes("---") || !row.includes("|"))
+                      return null;
+                    const cells = row.split("|").filter((c) => c.trim() !== "");
+                    return (
+                      <tr
+                        key={rIdx}
+                        className={
+                          rIdx === 0
+                            ? "bg-blue-50 font-bold text-blue-900"
+                            : "hover:bg-gray-50"
+                        }
+                      >
+                        {cells.map((cell, cIdx) => (
+                          <td
+                            key={cIdx}
+                            className="px-4 py-2 border-r last:border-0 border-gray-200 whitespace-pre-wrap"
+                          >
+                            {renderInlineContent(cell.trim())}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            );
+            return (
+              <div
+                key={idx}
+                className="relative group border border-gray-200 rounded-lg shadow-sm overflow-hidden"
+              >
+                <div className="flex justify-end bg-gray-50 px-2 py-1 border-b border-gray-100">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onZoom && onZoom(TableNode);
+                    }}
+                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                  >
+                    <Maximize2 size={12} /> ขยาย
+                  </button>
+                </div>
+                <div className="overflow-x-auto max-h-64">{TableNode}</div>
               </div>
-            ))}
-          </div>
-        )}
-        <div className="relative group">
-          <div className="flex justify-end mb-1">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onZoom && onZoom(TableContent);
-              }}
-              className="flex items-center gap-1 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition-colors border border-blue-200"
-            >
-              <Maximize2 size={12} /> ขยายตาราง
-            </button>
-          </div>
-          <div className="overflow-x-auto border border-gray-200 rounded-lg shadow-sm max-h-64 overflow-y-auto">
-            {TableContent}
-          </div>
-        </div>
-        {postText && (
-          <div className="mt-4 pt-2 border-t border-gray-100 border-dashed">
-            {postText.split("\n").map((l, i) => (
-              <div key={i} className="mb-1">
-                {renderInlineContent(l)}
+            );
+          }
+          // กรณีเป็นข้อความปกติ
+          else {
+            return (
+              <div key={idx} className="space-y-1">
+                {block.content.map((line, lIdx) => (
+                  <div key={lIdx} className="min-h-[1.2em]">
+                    {renderInlineContent(line)}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
+            );
+          }
+        })}
       </div>
     );
   };
@@ -1901,7 +1912,7 @@ const TopicCard = ({
               </span>
               {isRead && (
                 <span className="text-xs flex items-center gap-1 font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">
-                  <CheckCircle size={10} /> อ่านแล้ว
+                  <CheckCircle size={10} /> เน้น
                 </span>
               )}
             </div>
@@ -2000,12 +2011,12 @@ const TopicCard = ({
               >
                 {isRead ? (
                   <>
-                    <CheckCircle size={18} /> อ่านทบทวนแล้ว
+                    <CheckCircle size={18} /> เน้น
                   </>
                 ) : (
                   <>
                     <div className="w-4 h-4 rounded-full border-2 border-white/40" />{" "}
-                    เช็คว่าอ่านแล้ว
+                    เน้น
                   </>
                 )}
               </button>
@@ -2520,7 +2531,7 @@ export default function MedGuideApp() {
             </div>
             <div className="p-4 border-t border-gray-200 bg-gray-50 flex flex-col gap-2">
               <a
-                href="https://gemini.google.com/gem/1JYjKxdyeRIuc4o-CMX2oMKOfjmsWuX5H?usp=sharing"
+                href="https://gemini.google.com/gem/1WPakiMymn-lMY5epP8rjWvygRgFqWqw4?usp=sharing"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 py-2 text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg font-bold transition-all shadow-sm"
