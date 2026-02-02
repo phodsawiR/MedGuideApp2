@@ -1778,8 +1778,10 @@ const TopicCard = ({
   showAdmin,
   onEdit,
   onDelete,
+  expanded, // 👈 รับค่าสถานะเปิด/ปิด
+  onExpand, // 👈 รับฟังก์ชันกดปุ่ม
 }) => {
-  const [expanded, setExpanded] = React.useState(false);
+  // ✂️ ลบ const [expanded, setExpanded] = React.useState(false); ออกไปแล้ว
 
   // 🟢 1. ตั้งค่าตัวแปลงสัญลักษณ์ (Latex Map)
   const latexMap = {
@@ -2005,7 +2007,7 @@ const TopicCard = ({
     >
       <div
         className="p-4 cursor-pointer"
-        onClick={() => setExpanded(!expanded)}
+        onClick={onExpand} // 👈 เปลี่ยนเป็น onExpand
       >
         <div className="flex justify-between items-start gap-3">
           <div className="flex-1">
@@ -2180,6 +2182,8 @@ export default function MedGuideApp() {
     exam_tip: "",
     image: "",
   });
+  // 🟢 เพิ่ม State สำหรับเก็บ ID ของ Topic ที่เปิดอยู่ (เปิดได้ทีละอัน)
+  const [expandedTopicId, setExpandedTopicId] = useState(null);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -3100,6 +3104,10 @@ export default function MedGuideApp() {
                   showAdmin={showAdmin}
                   onEdit={handleEditClick}
                   onDelete={handleDeleteTopic}
+                  // 🟢 ส่งค่าลงไป: ถ้า ID ตรงกัน ให้เปิด (true), ถ้าไม่ตรง ให้ปิด (false)
+                  expanded={expandedTopicId === item.id}
+                  // 🟢 ฟังก์ชัน: ถ้ากดตัวเดิมให้ปิด (null), ถ้ากดตัวใหม่ให้สลับไป ID นั้น
+                  onExpand={() => setExpandedTopicId(prev => prev === item.id ? null : item.id)}
                 />
               ))}
             </div>
