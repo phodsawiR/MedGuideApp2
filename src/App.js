@@ -2276,6 +2276,10 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
   const [loading, setLoading] = useState(false);
   const [quizData, setQuizData] = useState(null);
 
+  // 🟢 เพิ่มบรรทัดนี้ต่อท้ายครับ:
+  const [error, setError] = useState(null);
+  const [showAnswer, setShowAnswer] = useState(false);
+
   // State ใหม่: ล็อค System (Default = Auto)
   const [targetSystem, setTargetSystem] = useState("Auto");
 
@@ -2315,25 +2319,26 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
   if (!isOpen) return null;
 
   const handleGenerate = async () => {
-    // 🟢 Unlock: ถ้าเลือก System แล้ว (ไม่ใช่ Auto) ยอมให้ไม่พิมพ์ Keyword ได้ (ถือว่าเป็นโหมดสุ่ม)
+    // 🛑 1. Validation Logic
     if (!keyword.trim() && targetSystem === "Auto") {
       alert("กรุณาพิมพ์หัวข้อ หรือเลือกหมวดหมู่ก่อนครับ");
       return;
     }
 
     setLoading(true);
+    setError(null);
     setQuizData(null);
+    setShowAnswer(false);
 
-    let contextDocs = [];
+    let contextText = "";
 
-    // 🎲 CASE 1: Random Mode (ไม่ได้พิมพ์ Keyword + เลือก System ไว้)
+    // 🎲 CASE 1: Random Mode (เลือกหมวด แต่ไม่พิมพ์คำค้น)
     if (!keyword.trim() && targetSystem !== "Auto") {
       console.log("Random Mode Activated for:", targetSystem);
+      const systemDocs = (allData || []).filter(
+        (d) => d.system === targetSystem
+      );
 
-      // 1. กรองเอาเฉพาะเนื้อหาใน System นั้น
-      let systemDocs = (allData || []).filter((d) => d.system === targetSystem);
-
-      // ถ้าหมวดนั้นไม่มีเนื้อหาเลย ให้แจ้งเตือน
       if (systemDocs.length === 0) {
         alert(
           `ยังไม่มีเนื้อหาในหมวด ${targetSystem} เลยครับ AI ไม่รู้จะออกอะไร`
@@ -2342,12 +2347,14 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
         return;
       }
 
-      // 2. สุ่มหยิบมาสัก 5-10 เรื่อง (Shuffle)
+      // สุ่มหยิบมา 10 เรื่อง (ตาม Logic เดิมของคุณ)
       const shuffled = systemDocs.sort(() => 0.5 - Math.random());
-      contextDocs = shuffled.slice(0, 10);
+      contextText = shuffled
+        .slice(0, 10)
+        .map((d) => `Topic: ${d.topic}\nContent: ${d.summary}`)
+        .join("\n----------------\n");
     }
-
-    // 🔍 CASE 2: Search Mode (พิมพ์ Keyword มา)
+    // 🔍 CASE 2: Search Mode (ใช้ Logic เดิมของคุณที่ฉลาดกว่า)
     else {
       let allDocs = allData || [];
       const scoredDocs = allDocs.map((doc) => {
@@ -2367,72 +2374,113 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
         return { doc, score };
       });
 
+      // เรียงตามคะแนนความเกี่ยวข้อง
       scoredDocs.sort((a, b) => b.score - a.score);
-      contextDocs = scoredDocs.slice(0, 40).map((item) => item.doc);
-      if (contextDocs.length === 0) contextDocs = allDocs.slice(0, 20); // Fallback
+
+      // เอา 40 อันแรก หรือถ้าไม่เจอเลยเอา 20 อันแรก (Fallback เดิม)
+      let selectedDocs = scoredDocs.slice(0, 40).map((item) => item.doc);
+      if (selectedDocs.length === 0) selectedDocs = allDocs.slice(0, 20);
+
+      contextText = selectedDocs
+        .map((d) => `Topic: ${d.topic}\nContent: ${d.summary}`)
+        .join("\n----------------\n");
     }
 
-    const contextText = contextDocs
-      .map((d) => `ID: ${d.id} | Topic: ${d.topic}\nContent: ${d.summary}`)
-      .join("\n----------------\n");
-
     try {
-      // ปรับ Prompt ให้รองรับกรณีไม่มี Keyword
-      const userRequest = keyword.trim()
-        ? `User Keyword: "${keyword}"`
-        : `User Keyword: NONE (Randomly select a HIGH-YIELD topic from the provided context)`;
-
-      const systemInstruction =
-        targetSystem === "Auto"
-          ? "Classify this question into the most appropriate Medical System."
-          : `FORCE CLASSIFY this question as "${targetSystem}".`;
-
+      // 📝 แนะนำให้ใช้ Prompt นี้ครับ (เสถียรสุด + มีตัวอย่างให้ AI ลอก)
+      // 📝 Prompt Engineering (MDCU Compre Style)
       const prompt = `
-        Act as a Medical Exam Expert.
+        Act as a Medical Comprehensive Exam Expert (integrating USMLE Step 1 & Step 2 CK).
         
-        ${userRequest}
-        TARGET SYSTEM: ${targetSystem} (${systemInstruction})
-        
-        DATABASE (Source of Truth):
+        CONTEXT FROM DATABASE:
         ${contextText}
 
-        ${examRef ? `REFERENCE STYLE: \n${examRef}` : ""}
+        USER REQUEST:
+        - Keyword: "${keyword || "RANDOM"}"
+        - Target System: "${targetSystem}"
+        - Instruction: ${
+          targetSystem === "Auto"
+            ? "Classify appropriately."
+            : `FORCE CLASSIFY as ${targetSystem}.`
+        }
 
         TASK:
-        1. Select relevant content from DATABASE.
-        2. Create a high-quality Multiple Choice Question (5 options).
-        3. ${systemInstruction}
-        4. Explanation in Thai.
+        Create 1 High-Yield Multiple Choice Question matching the style of "Medical School Comprehensive Exams".
+        
+        🎯 EXAM STYLE GUIDELINES (Based on MDCU Compre):
+        - Focus heavily on **Pathophysiology**, **Mechanism of Action (Drugs)**, **Embryology**, **Genetics**, and **Clinical Diagnosis**.
+        - Questions can be direct (e.g., "What is the mechanism?", "What is the diagnosis?", "What is the causative organism?").
+        - Vignettes can be short and concise.
+        - Options must be plausible (5 choices).
 
-        OUTPUT JSON format:
+        🚨 CRITICAL RULES:
+        1. Return ONLY raw JSON.
+        2. Explanation must be in Thai (Explain the mechanism/reasoning clearly).
+        3. Strict JSON format.
+
+        👇 STRICT OUTPUT FORMAT (Example):
         {
-          "question": "...",
-          "options": ["A", "B", "C", "D", "E"],
+          "question": "A patient presents with... [Clinical Vignette]. What is the underlying mechanism of this condition?",
+          "options": ["Defect in fibrillin-1", "Mutation in FGFR3", "Defect in Type I Collagen", "Trisomy 21", "X-linked recessive trait"],
           "correctIndex": 0,
-          "explanation": "...",
-          "system": "${targetSystem === "Auto" ? "General" : targetSystem}" 
+          "explanation": "คำอธิบายภาษาไทย: โรคนี้คือ Marfan syndrome ซึ่งเกิดจากความผิดปกติของ gene Fibrillin-1...",
+          "system": "Genetics"
         }
       `;
 
+      // 🚀 4. Fetch API (ใช้ระบบป้องกัน Error แบบใหม่)
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            // ✅ บังคับ JSON
+            generationConfig: { responseMimeType: "application/json" },
+            // ✅ ปลดล็อค Safety (สำคัญสำหรับศัพท์แพทย์)
+            safetySettings: [
+              {
+                category: "HARM_CATEGORY_HARASSMENT",
+                threshold: "BLOCK_ONLY_HIGH",
+              },
+              {
+                category: "HARM_CATEGORY_HATE_SPEECH",
+                threshold: "BLOCK_ONLY_HIGH",
+              },
+              {
+                category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                threshold: "BLOCK_ONLY_HIGH",
+              },
+              {
+                category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                threshold: "BLOCK_ONLY_HIGH",
+              },
+            ],
+          }),
         }
       );
 
-      const data = await response.json();
-      if (!data.candidates || data.candidates.length === 0)
-        throw new Error("AI No Response");
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(
+          errData.error?.message || `HTTP Error: ${response.status}`
+        );
+      }
 
-      const textResponse = data.candidates[0].content.parts[0].text;
-      const jsonString = textResponse.replace(/```json|```/g, "").trim();
-      setQuizData(JSON.parse(jsonString));
+      const data = await response.json();
+
+      if (!data.candidates || !data.candidates[0].content) {
+        throw new Error("AI ปฏิเสธการสร้างคำถาม (อาจติด Safety Filter)");
+      }
+
+      const rawText = data.candidates[0].content.parts[0].text;
+      const parsedData = JSON.parse(rawText); // ไม่ต้อง replace ขยะแล้ว
+
+      setQuizData(parsedData);
     } catch (err) {
-      console.error(err);
-      alert("Error: " + err.message);
+      console.error("Gen Error:", err);
+      setError(`❌ เกิดข้อผิดพลาด: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -2581,6 +2629,13 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
                 )}
                 {loading ? "AI กำลังทำงาน..." : "สร้างโจทย์"}
               </button>
+              {/* 🟢 วางโค้ดแสดง Error ตรงนี้ครับ (ต่อจากปุ่มเลย) */}
+              {error && (
+                <div className="p-3 bg-red-100 text-red-700 text-sm rounded-lg border border-red-200 mt-2 flex items-center gap-2">
+                  <AlertTriangle size={16} />
+                  <span>{error}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -2617,45 +2672,54 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
                 {isExpanded && (
                   <div className="px-4 pb-4 animate-in slide-in-from-top-1 border-t border-gray-100 bg-gray-50/30">
                     <div className="space-y-2 mt-3">
-                      {quizData.options.map((opt, idx) => {
-                        let btnClass =
-                          "border-gray-200 bg-white hover:bg-gray-50 text-gray-600";
-                        const isAnswered = previewAnswer !== null;
+                      {/* 🟢 แก้ไข: เช็คก่อนว่ามี options ไหม ค่อยวนลูป */}
+                      {quizData.options && quizData.options.length > 0 ? (
+                        quizData.options.map((opt, idx) => {
+                          let btnClass =
+                            "border-gray-200 bg-white hover:bg-gray-50 text-gray-600";
+                          const isAnswered = previewAnswer !== null;
 
-                        if (isAnswered) {
-                          if (idx === quizData.correctIndex)
-                            btnClass =
-                              "bg-green-100 border-green-300 text-green-800 font-bold";
-                          else if (
-                            idx === previewAnswer &&
-                            idx !== quizData.correctIndex
-                          )
-                            btnClass = "bg-red-100 border-red-300 text-red-800";
-                          else btnClass = "opacity-50";
-                        }
+                          if (isAnswered) {
+                            if (idx === quizData.correctIndex)
+                              btnClass =
+                                "bg-green-100 border-green-300 text-green-800 font-bold";
+                            else if (
+                              idx === previewAnswer &&
+                              idx !== quizData.correctIndex
+                            )
+                              btnClass =
+                                "bg-red-100 border-red-300 text-red-800";
+                            else btnClass = "opacity-50";
+                          }
 
-                        return (
-                          <button
-                            key={idx}
-                            disabled={isAnswered}
-                            onClick={() => setPreviewAnswer(idx)}
-                            className={`w-full text-left p-3 rounded-lg border transition-all text-sm flex items-center gap-3 ${btnClass}`}
-                          >
-                            <div
-                              className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold ${
-                                isAnswered && idx === quizData.correctIndex
-                                  ? "bg-green-500 border-green-500 text-white"
-                                  : isAnswered && idx === previewAnswer
-                                  ? "bg-red-500 border-red-500 text-white"
-                                  : "bg-white border-gray-300 text-gray-500"
-                              }`}
+                          return (
+                            <button
+                              key={idx}
+                              disabled={isAnswered}
+                              onClick={() => setPreviewAnswer(idx)}
+                              className={`w-full text-left p-3 rounded-lg border transition-all text-sm flex items-center gap-3 ${btnClass}`}
                             >
-                              {String.fromCharCode(65 + idx)}
-                            </div>
-                            {renderMath(opt)}
-                          </button>
-                        );
-                      })}
+                              <div
+                                className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold ${
+                                  isAnswered && idx === quizData.correctIndex
+                                    ? "bg-green-500 border-green-500 text-white"
+                                    : isAnswered && idx === previewAnswer
+                                    ? "bg-red-500 border-red-500 text-white"
+                                    : "bg-white border-gray-300 text-gray-500"
+                                }`}
+                              >
+                                {String.fromCharCode(65 + idx)}
+                              </div>
+                              {renderMath(opt)}
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <div className="p-4 text-center text-red-500 bg-red-50 rounded-lg border border-red-200">
+                          ⚠️ ข้อมูลตัวเลือกไม่ครบถ้วนจาก AI (กรุณากด "ทิ้ง"
+                          แล้วสร้างใหม่)
+                        </div>
+                      )}
                     </div>
                     {previewAnswer !== null && (
                       <div className="mt-4 p-3 bg-blue-50 text-blue-900 text-sm rounded-lg border border-blue-100 animate-in fade-in">
