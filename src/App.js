@@ -64,6 +64,136 @@ import {
   writeBatch,
   where,
 } from "firebase/firestore";
+// --- 🛠️ Global Text Renderer (รองรับ Latex/Subscript/Superscript) ---
+// ใช้สำหรับแปลง $Ca^{2+}$ -> Ca²⁺ หรือ **ตัวหนา** ในทุกส่วนของ App
+const renderMath = (text) => {
+  if (!text) return null;
+
+  const latexMap = {
+    "\\Delta": "Δ",
+    "\\alpha": "α",
+    "\\beta": "β",
+    "\\gamma": "γ",
+    "\\lambda": "λ",
+    "\\theta": "θ",
+    "\\mu": "μ",
+    "\\pi": "π",
+    "\\rightarrow": "→",
+    "\\leftarrow": "←",
+    "\\uparrow": "↑",
+    "\\downarrow": "↓",
+    "\\approx": "≈",
+    "\\neq": "≠",
+    "\\leq": "≤",
+    "\\geq": "≥",
+    "\\pm": "±",
+    "\\infty": "∞",
+    "\\ge": "≥",
+    "\\le": "≤",
+  };
+
+  const supMap = {
+    0: "⁰",
+    1: "¹",
+    2: "²",
+    3: "³",
+    4: "⁴",
+    5: "⁵",
+    6: "⁶",
+    7: "⁷",
+    8: "⁸",
+    9: "⁹",
+    "+": "⁺",
+    "-": "⁻",
+    "=": "⁼",
+    "(": "⁽",
+    ")": "⁾",
+    n: "ⁿ",
+  };
+
+  const subMap = {
+    0: "₀",
+    1: "₁",
+    2: "₂",
+    3: "₃",
+    4: "₄",
+    5: "₅",
+    6: "₆",
+    7: "₇",
+    8: "⁸",
+    9: "₉",
+    "+": "₊",
+    "-": "₋",
+    "=": "₌",
+    "(": "₍",
+    ")": "₎",
+    a: "ₐ",
+    e: "ₑ",
+    o: "ₒ",
+    x: "ₓ",
+    y: "ᵧ",
+    m: "ₘ",
+  };
+
+  // Clean HTML Tags
+  let cleanText = text
+    .replace(/<b>/g, "**")
+    .replace(/<\/b>/g, "**")
+    .replace(/<i>/g, "*")
+    .replace(/<\/i>/g, "*");
+
+  const parseLatex = (str) => {
+    let res = str;
+    // 1. Greek/Special
+    Object.keys(latexMap).forEach((k) => {
+      res = res.split(k).join(latexMap[k]);
+    });
+
+    // 2. Superscript (ตัวยก) เช่น ^{2+} หรือ ^2
+    res = res.replace(/\^\{([^\}]+)\}/g, (_, m) =>
+      m
+        .split("")
+        .map((c) => supMap[c] || c)
+        .join("")
+    );
+    res = res.replace(/\^([0-9\+\-n])/g, (_, m) => supMap[m] || m);
+
+    // 3. Subscript (ตัวห้อย) เช่น _{max} หรือ _2
+    res = res.replace(/_\{([^\}]+)\}/g, (_, m) =>
+      m
+        .split("")
+        .map((c) => subMap[c] || c)
+        .join("")
+    );
+    res = res.replace(/_([0-9\+\-aeomx])/g, (_, m) => subMap[m] || m);
+
+    return res;
+  };
+
+  // แยกส่วน $...$ (Latex), **...** (Bold), *...* (Italic)
+  const parts = cleanText.split(/(\$.*?\$|\*\*.*?\*\*|\*.*?\*)/g);
+
+  return parts.map((part, index) => {
+    if (part.startsWith("$") && part.endsWith("$")) {
+      return (
+        <span
+          key={index}
+          className="font-serif italic px-0.5 text-indigo-700 font-bold"
+        >
+          {parseLatex(part.slice(1, -1))}
+        </span>
+      );
+    }
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={index} className="font-bold text-gray-900">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return <span key={index}>{part}</span>;
+  });
+};
 // --- 🛠️ เครื่องมือแปลงลิงก์ Google Drive (สูตรใหม่: ใช้ Thumbnail แก้ปัญหาบล็อก) ---
 const getImageUrl = (url) => {
   if (!url || typeof url !== "string") return null;
@@ -2139,65 +2269,148 @@ const TopicCard = ({
   );
 };
 
-//// --- 🧠 AI Quiz Modal (Save & Unique Logic) ---
+// --- 🧠 AI Quiz Modal (Prompt + Target System Selector) ---
 const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
   const [keyword, setKeyword] = useState("");
   const [mode, setMode] = useState("case");
   const [loading, setLoading] = useState(false);
   const [quizData, setQuizData] = useState(null);
-  const [showAnswer, setShowAnswer] = useState(false);
-  const [error, setError] = useState(null);
-  const [isSaving, setIsSaving] = useState(false);
 
-  // 🔑 Key ของคุณ
+  // State ใหม่: ล็อค System (Default = Auto)
+  const [targetSystem, setTargetSystem] = useState("Auto");
+
+  // ดึงรายชื่อ System ทั้งหมดที่มีในเนื้อหา มาทำ Dropdown
+  const availableSystems = useMemo(() => {
+    if (!allData) return [];
+    const systems = new Set(allData.map((d) => d.system || "General"));
+    return Array.from(systems).sort();
+  }, [allData]);
+
+  // State Preview
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [previewAnswer, setPreviewAnswer] = useState(null);
+
+  // State Reference
+  const [examRef, setExamRef] = useState(
+    () => localStorage.getItem("medGuide_examRef") || ""
+  );
+
+  useEffect(() => localStorage.setItem("medGuide_examRef", examRef), [examRef]);
+
   const GEMINI_API_KEY = "AIzaSyAZzuAm98ny6kglQeaNjA_PxWDivr9QxvU";
+
+  useEffect(() => {
+    if (!isOpen) {
+      setQuizData(null);
+      setKeyword("");
+      setTargetSystem("Auto"); // Reset เป็น Auto ทุกครั้งที่เปิดใหม่
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    setIsExpanded(true);
+    setPreviewAnswer(null);
+  }, [quizData]);
 
   if (!isOpen) return null;
 
   const handleGenerate = async () => {
-    if (!keyword.trim()) return;
+    // 🟢 Unlock: ถ้าเลือก System แล้ว (ไม่ใช่ Auto) ยอมให้ไม่พิมพ์ Keyword ได้ (ถือว่าเป็นโหมดสุ่ม)
+    if (!keyword.trim() && targetSystem === "Auto") {
+      alert("กรุณาพิมพ์หัวข้อ หรือเลือกหมวดหมู่ก่อนครับ");
+      return;
+    }
+
     setLoading(true);
-    setError(null);
     setQuizData(null);
-    setShowAnswer(false);
 
-    // 1. หา Context เนื้อหา
-    const relevantDocs = allData
-      ? allData
-          .filter((item) =>
-            (item.topic + item.summary)
-              .toLowerCase()
-              .includes(keyword.toLowerCase())
-          )
-          .slice(0, 5)
-      : [];
-    const contextText = relevantDocs
-      .map((d) => `Topic: ${d.topic}\nData: ${d.summary}`)
-      .join("\n---\n");
+    let contextDocs = [];
 
-    // 2. หาโจทย์เก่าที่เกี่ยวกับเรื่องนี้ (เพื่อบอก AI ห้ามซ้ำ)
-    const existingQuestions = savedQuizzes
-      .filter((q) => q.topicKeyword && q.topicKeyword.includes(keyword))
-      .map((q) => q.question)
-      .join("\n- ");
+    // 🎲 CASE 1: Random Mode (ไม่ได้พิมพ์ Keyword + เลือก System ไว้)
+    if (!keyword.trim() && targetSystem !== "Auto") {
+      console.log("Random Mode Activated for:", targetSystem);
+
+      // 1. กรองเอาเฉพาะเนื้อหาใน System นั้น
+      let systemDocs = (allData || []).filter((d) => d.system === targetSystem);
+
+      // ถ้าหมวดนั้นไม่มีเนื้อหาเลย ให้แจ้งเตือน
+      if (systemDocs.length === 0) {
+        alert(
+          `ยังไม่มีเนื้อหาในหมวด ${targetSystem} เลยครับ AI ไม่รู้จะออกอะไร`
+        );
+        setLoading(false);
+        return;
+      }
+
+      // 2. สุ่มหยิบมาสัก 5-10 เรื่อง (Shuffle)
+      const shuffled = systemDocs.sort(() => 0.5 - Math.random());
+      contextDocs = shuffled.slice(0, 10);
+    }
+
+    // 🔍 CASE 2: Search Mode (พิมพ์ Keyword มา)
+    else {
+      let allDocs = allData || [];
+      const scoredDocs = allDocs.map((doc) => {
+        let score = 0;
+        const text = (
+          doc.topic +
+          " " +
+          doc.summary +
+          " " +
+          doc.system
+        ).toLowerCase();
+        const searchTerms = keyword.toLowerCase().split(/\s+/);
+        searchTerms.forEach((term) => {
+          if (term.length < 2) return;
+          if (text.includes(term)) score += 1;
+        });
+        return { doc, score };
+      });
+
+      scoredDocs.sort((a, b) => b.score - a.score);
+      contextDocs = scoredDocs.slice(0, 40).map((item) => item.doc);
+      if (contextDocs.length === 0) contextDocs = allDocs.slice(0, 20); // Fallback
+    }
+
+    const contextText = contextDocs
+      .map((d) => `ID: ${d.id} | Topic: ${d.topic}\nContent: ${d.summary}`)
+      .join("\n----------------\n");
 
     try {
+      // ปรับ Prompt ให้รองรับกรณีไม่มี Keyword
+      const userRequest = keyword.trim()
+        ? `User Keyword: "${keyword}"`
+        : `User Keyword: NONE (Randomly select a HIGH-YIELD topic from the provided context)`;
+
+      const systemInstruction =
+        targetSystem === "Auto"
+          ? "Classify this question into the most appropriate Medical System."
+          : `FORCE CLASSIFY this question as "${targetSystem}".`;
+
       const prompt = `
-        Act as a medical exam expert (USMLE Step 2).
-        Context from notes: ${contextText}
-        User Keyword: "${keyword}"
-        Mode: ${mode === "case" ? "Clinical Case (Long)" : "Rapid Fire (Short)"}
+        Act as a Medical Exam Expert.
+        
+        ${userRequest}
+        TARGET SYSTEM: ${targetSystem} (${systemInstruction})
+        
+        DATABASE (Source of Truth):
+        ${contextText}
 
-        ⚠️ CRITICAL: DO NOT duplicate these existing questions:
-        ${existingQuestions}
+        ${examRef ? `REFERENCE STYLE: \n${examRef}` : ""}
 
-        Task: Create a NEW unique multiple-choice question.
-        Return raw JSON:
+        TASK:
+        1. Select relevant content from DATABASE.
+        2. Create a high-quality Multiple Choice Question (5 options).
+        3. ${systemInstruction}
+        4. Explanation in Thai.
+
+        OUTPUT JSON format:
         {
           "question": "...",
           "options": ["A", "B", "C", "D", "E"],
           "correctIndex": 0,
-          "explanation": "..."
+          "explanation": "...",
+          "system": "${targetSystem === "Auto" ? "General" : targetSystem}" 
         }
       `;
 
@@ -2211,12 +2424,15 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
       );
 
       const data = await response.json();
+      if (!data.candidates || data.candidates.length === 0)
+        throw new Error("AI No Response");
+
       const textResponse = data.candidates[0].content.parts[0].text;
       const jsonString = textResponse.replace(/```json|```/g, "").trim();
       setQuizData(JSON.parse(jsonString));
     } catch (err) {
       console.error(err);
-      setError("Error: " + err.message);
+      alert("Error: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -2224,21 +2440,21 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
 
   const handleSave = async () => {
     if (!quizData) return;
-    setIsSaving(true);
     try {
       const db = getFirestore();
+      // 🟢 ใช้ System จาก QuizData (ซึ่ง AI จะใส่ตามที่เรา Force ไปใน Prompt)
+      const finalSystem = quizData.system || targetSystem || "General";
+
       await addDoc(collection(db, "quizzes"), {
         ...quizData,
-        topicKeyword: keyword,
+        system: finalSystem,
         createdAt: new Date().toISOString(),
         mode: mode,
       });
-      alert("✅ บันทึกเข้าคลังข้อสอบแล้ว!");
-      onClose(); // ปิด Modal
+      alert(`✅ บันทึกเข้าหมวด ${finalSystem} เรียบร้อย!`);
+      onClose();
     } catch (err) {
       alert("บันทึกไม่สำเร็จ: " + err.message);
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -2251,7 +2467,6 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
         className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 flex justify-between items-center text-white">
           <h3 className="font-bold flex items-center gap-2">
             <Brain /> AI Quiz Creator
@@ -2261,10 +2476,9 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-6 overflow-y-auto custom-scrollbar">
-          {!quizData ? (
-            <div className="space-y-4">
+        <div className="p-6 overflow-y-auto custom-scrollbar space-y-4">
+          {!quizData && (
+            <div className="space-y-4 animate-in slide-in-from-bottom-2">
               <div className="flex bg-gray-100 p-1 rounded-lg">
                 <button
                   onClick={() => setMode("case")}
@@ -2274,7 +2488,7 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
                       : "text-gray-500"
                   }`}
                 >
-                  Case
+                  Clinical Case
                 </button>
                 <button
                   onClick={() => setMode("rapid")}
@@ -2284,68 +2498,187 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
                       : "text-gray-500"
                   }`}
                 >
-                  Rapid
+                  Rapid Fire
                 </button>
               </div>
-              <input
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                placeholder="พิมพ์หัวข้อ (เช่น HF, Asthma)..."
-                className="w-full border-2 p-3 rounded-xl focus:border-indigo-500 outline-none"
-              />
-              <button
-                onClick={handleGenerate}
-                disabled={loading || !keyword}
-                className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {loading ? "กำลังคิดโจทย์..." : "สร้างโจทย์ใหม่"}
-              </button>
-              {error && <p className="text-red-500 text-sm">{error}</p>}
-            </div>
-          ) : (
-            <div className="space-y-4 animate-in slide-in-from-bottom-2">
-              <h2 className="font-bold text-lg">{quizData.question}</h2>
-              <div className="space-y-2">
-                {quizData.options.map((opt, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-3 border rounded ${
-                      idx === quizData.correctIndex
-                        ? "border-green-500 bg-green-50"
-                        : ""
-                    }`}
-                  >
-                    {opt}{" "}
-                    {idx === quizData.correctIndex && (
-                      <span className="text-green-600 text-xs font-bold">
-                        (เฉลย)
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="p-3 bg-blue-50 text-sm text-blue-800 rounded">
-                {quizData.explanation}
+
+              {/* 🟢 System Selector (Target) */}
+              <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                <label className="text-xs font-bold text-blue-600 mb-1 block">
+                  ต้องการบันทึกในหมวดไหน?
+                </label>
+                <select
+                  value={targetSystem}
+                  onChange={(e) => setTargetSystem(e.target.value)}
+                  className="w-full p-2 rounded-lg border-blue-200 focus:ring-2 focus:ring-blue-400 outline-none text-sm font-bold text-gray-700"
+                >
+                  <option value="Auto">✨ Auto (ให้ AI ตัดสินใจเอง)</option>
+                  {availableSystems.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div className="flex gap-2 pt-4 border-t">
+              {/* Input Prompt */}
+              <div>
+                <label className="text-xs font-bold text-gray-500 mb-1 block">
+                  <Zap size={12} className="inline mr-1 text-yellow-500" />
+                  คำสั่งสร้างโจทย์ (Prompt)
+                </label>
+                <input
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  placeholder={
+                    targetSystem !== "Auto"
+                      ? "ปล่อยว่างได้เลย (AI จะสุ่มเรื่องในหมวดนี้ให้) หรือพิมพ์เพื่อเจาะจง..."
+                      : "พิมพ์หัวข้อที่ต้องการ..."
+                  }
+                  className="w-full border-2 p-3 rounded-xl focus:border-indigo-500 outline-none font-bold text-lg"
+                  onKeyDown={(e) => e.key === "Enter" && handleGenerate()}
+                  autoFocus
+                />
+              </div>
+
+              {/* Reference Box */}
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-xs font-bold text-gray-500 flex items-center gap-1">
+                    <FileText size={14} /> Reference / ข้อสอบเก่า
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-gray-400">
+                      {examRef.length.toLocaleString()} chars
+                    </span>
+                    {examRef && (
+                      <button
+                        onClick={() => setExamRef("")}
+                        className="text-[10px] text-red-500 hover:bg-red-50 px-2 py-1 rounded"
+                      >
+                        ล้างค่า
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <textarea
+                  value={examRef}
+                  onChange={(e) => setExamRef(e.target.value)}
+                  placeholder="วางข้อสอบเก่าที่นี่..."
+                  className="w-full border p-3 rounded-lg focus:border-indigo-500 outline-none text-xs text-gray-600 font-mono h-20 transition-all focus:h-40"
+                />
+              </div>
+
+              <button
+                onClick={handleGenerate}
+                disabled={loading || (!keyword && targetSystem === "Auto")}
+                className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 shadow-lg flex justify-center items-center gap-2"
+              >
+                {loading ? (
+                  <RefreshCw className="animate-spin" />
+                ) : (
+                  <Zap size={18} />
+                )}
+                {loading ? "AI กำลังทำงาน..." : "สร้างโจทย์"}
+              </button>
+            </div>
+          )}
+
+          {/* Result Area */}
+          {quizData && (
+            <div className="animate-in fade-in space-y-4">
+              <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                <div
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="p-4 cursor-pointer hover:bg-gray-50 transition-colors flex justify-between items-start gap-3"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase">
+                        Generated
+                      </span>
+                      <span className="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase">
+                        {quizData.system || targetSystem}
+                      </span>
+                    </div>
+                    <h3 className="font-bold text-gray-800 text-sm md:text-base leading-relaxed">
+                      {renderMath(quizData.question)}
+                    </h3>
+                  </div>
+                  <div className="text-gray-400">
+                    {isExpanded ? (
+                      <ChevronUp size={20} />
+                    ) : (
+                      <ChevronDown size={20} />
+                    )}
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className="px-4 pb-4 animate-in slide-in-from-top-1 border-t border-gray-100 bg-gray-50/30">
+                    <div className="space-y-2 mt-3">
+                      {quizData.options.map((opt, idx) => {
+                        let btnClass =
+                          "border-gray-200 bg-white hover:bg-gray-50 text-gray-600";
+                        const isAnswered = previewAnswer !== null;
+
+                        if (isAnswered) {
+                          if (idx === quizData.correctIndex)
+                            btnClass =
+                              "bg-green-100 border-green-300 text-green-800 font-bold";
+                          else if (
+                            idx === previewAnswer &&
+                            idx !== quizData.correctIndex
+                          )
+                            btnClass = "bg-red-100 border-red-300 text-red-800";
+                          else btnClass = "opacity-50";
+                        }
+
+                        return (
+                          <button
+                            key={idx}
+                            disabled={isAnswered}
+                            onClick={() => setPreviewAnswer(idx)}
+                            className={`w-full text-left p-3 rounded-lg border transition-all text-sm flex items-center gap-3 ${btnClass}`}
+                          >
+                            <div
+                              className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold ${
+                                isAnswered && idx === quizData.correctIndex
+                                  ? "bg-green-500 border-green-500 text-white"
+                                  : isAnswered && idx === previewAnswer
+                                  ? "bg-red-500 border-red-500 text-white"
+                                  : "bg-white border-gray-300 text-gray-500"
+                              }`}
+                            >
+                              {String.fromCharCode(65 + idx)}
+                            </div>
+                            {renderMath(opt)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {previewAnswer !== null && (
+                      <div className="mt-4 p-3 bg-blue-50 text-blue-900 text-sm rounded-lg border border-blue-100 animate-in fade-in">
+                        <strong>💡 เฉลยละเอียด:</strong>{" "}
+                        {renderMath(quizData.explanation)}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2">
                 <button
                   onClick={() => setQuizData(null)}
-                  className="flex-1 py-2 text-gray-500 hover:bg-gray-100 rounded"
+                  className="flex-1 py-2 text-gray-500 hover:bg-gray-100 rounded-lg font-bold"
                 >
-                  ทิ้ง (สร้างใหม่)
+                  ทิ้ง (ทำใหม่)
                 </button>
                 <button
                   onClick={handleSave}
-                  disabled={isSaving}
-                  className="flex-1 py-2 bg-green-600 text-white rounded font-bold hover:bg-green-700 flex items-center justify-center gap-2"
+                  className="flex-1 py-2 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 shadow-lg"
                 >
-                  {isSaving ? (
-                    <RefreshCw className="animate-spin" />
-                  ) : (
-                    <Save size={18} />
-                  )}{" "}
-                  บันทึกข้อนี้
+                  บันทึก ({quizData.system || targetSystem})
                 </button>
               </div>
             </div>
@@ -2356,11 +2689,43 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
   );
 };
 
-// --- 📚 Quiz Bank Component (Edit & View) ---
+// --- 📚 Quiz Bank Component (Interactive V2) ---
+// --- 📚 Quiz Bank Component (V3: Search & Filter & Interactive) ---
 const QuizBank = ({ quizzes, db }) => {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
+  const [userAnswers, setUserAnswers] = useState({});
+
+  // 🟢 State ใหม่: สำหรับค้นหาและกรอง
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterSystem, setFilterSystem] = useState("All Systems");
+
+  // ดึงรายชื่อ System ทั้งหมดที่มีในคลังออกมา (ป้องกันปุ่มซ้ำ)
+  const availableSystems = useMemo(() => {
+    const systems = new Set(quizzes.map((q) => q.system || "General"));
+
+    // 🟢 แก้ Bug: ลบชื่อ "All Systems" ออกจาก Set ก่อน (ถ้ามีหลงมา)
+    // เพราะเราจะใส่ "All Systems" ไว้ตัวแรกสุดเองอยู่แล้ว
+    systems.delete("All Systems");
+
+    return ["All Systems", ...Array.from(systems).sort()];
+  }, [quizzes]);
+
+  // Logic การกรองโจทย์
+  const filteredQuizzes = quizzes.filter((quiz) => {
+    const matchesSearch = (
+      quiz.question +
+      quiz.explanation +
+      (quiz.topicKeyword || "")
+    )
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    const matchesSystem =
+      filterSystem === "All Systems" ||
+      (quiz.system || "General") === filterSystem;
+    return matchesSearch && matchesSystem;
+  });
 
   const handleDelete = async (id) => {
     if (!confirm("ยืนยันลบโจทย์ข้อนี้?")) return;
@@ -2377,6 +2742,20 @@ const QuizBank = ({ quizzes, db }) => {
     setEditingId(null);
   };
 
+  const handleSelectAnswer = (quizId, optionIndex) => {
+    if (userAnswers[quizId] !== undefined) return;
+    setUserAnswers((prev) => ({ ...prev, [quizId]: optionIndex }));
+  };
+
+  const resetQuiz = (quizId, e) => {
+    e.stopPropagation();
+    setUserAnswers((prev) => {
+      const newState = { ...prev };
+      delete newState[quizId];
+      return newState;
+    });
+  };
+
   if (quizzes.length === 0)
     return (
       <div className="text-center p-10 text-gray-400">
@@ -2387,142 +2766,288 @@ const QuizBank = ({ quizzes, db }) => {
 
   return (
     <div className="space-y-4 p-4 pb-20 max-w-3xl mx-auto">
-      {quizzes.map((quiz) => (
-        <div
-          key={quiz.id}
-          className="bg-white border rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-        >
-          {editingId === quiz.id ? (
-            <div className="p-4 space-y-3 bg-indigo-50">
-              <label className="text-xs font-bold text-indigo-600">
-                แก้ไขคำถาม:
-              </label>
-              <textarea
-                className="w-full p-2 border rounded"
-                value={editForm.question}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, question: e.target.value })
-                }
-              />
-              <div className="grid grid-cols-1 gap-2">
-                {editForm.options.map((opt, idx) => (
-                  <input
-                    key={idx}
-                    className={`w-full p-2 border rounded ${
-                      idx === editForm.correctIndex
-                        ? "border-green-500 bg-green-50"
-                        : ""
-                    }`}
-                    value={opt}
-                    onChange={(e) => {
-                      const newOpts = [...editForm.options];
-                      newOpts[idx] = e.target.value;
-                      setEditForm({ ...editForm, options: newOpts });
-                    }}
-                  />
-                ))}
-              </div>
-              <label className="text-xs font-bold text-indigo-600">
-                เฉลยละเอียด:
-              </label>
-              <textarea
-                className="w-full p-2 border rounded text-sm"
-                value={editForm.explanation}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, explanation: e.target.value })
-                }
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => setEditingId(null)}
-                  className="px-3 py-1 text-gray-500"
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  onClick={saveEdit}
-                  className="px-3 py-1 bg-indigo-600 text-white rounded"
-                >
-                  บันทึกการแก้ไข
-                </button>
-              </div>
-            </div>
-          ) : (
-            // View Mode
-            <div
-              onClick={() =>
-                setExpandedId(expandedId === quiz.id ? null : quiz.id)
-              }
-              className="cursor-pointer"
+      {/* 🟢 ส่วนควบคุมใหม่: Search & Filter */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 sticky top-0 z-10 space-y-3">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-3 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="ค้นหาโจทย์ (อาการ, โรค, keyword)..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-gray-50 text-sm"
+            />
+          </div>
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
             >
-              <div className="p-4 flex justify-between items-start gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span
-                      className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
-                        quiz.mode === "case"
-                          ? "bg-purple-100 text-purple-700"
-                          : "bg-pink-100 text-pink-700"
-                      }`}
-                    >
-                      {quiz.mode || "Quiz"}
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      {new Date(quiz.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <h3 className="font-bold text-gray-800 text-sm md:text-base leading-relaxed">
-                    {quiz.question}
-                  </h3>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      startEdit(quiz);
-                    }}
-                    className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"
-                  >
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(quiz.id);
-                    }}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
+              <X size={20} />
+            </button>
+          )}
+        </div>
 
-              {/* Expanded Answer */}
-              {expandedId === quiz.id && (
-                <div className="px-4 pb-4 animate-in fade-in">
-                  <div className="space-y-2 mt-2 pl-4 border-l-2 border-indigo-100">
-                    {quiz.options.map((opt, idx) => (
-                      <div
+        {/* Filter Tags (Pills) */}
+        <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+          {availableSystems.map((sys) => (
+            <button
+              key={sys}
+              onClick={() => setFilterSystem(sys)}
+              className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                filterSystem === sys
+                  ? "bg-indigo-600 text-white border-indigo-600 shadow-md"
+                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+              }`}
+            >
+              {sys}
+            </button>
+          ))}
+        </div>
+
+        <div className="text-[10px] text-gray-400 font-bold text-right">
+          แสดง {filteredQuizzes.length} จาก {quizzes.length} ข้อ
+        </div>
+      </div>
+
+      {/* 🟢 List รายการโจทย์ (Loop จาก filteredQuizzes) */}
+      {filteredQuizzes.length === 0 ? (
+        <div className="text-center p-10 text-gray-400">
+          <p>ไม่พบโจทย์ที่ค้นหา</p>
+          {(searchTerm || filterSystem !== "All Systems") && (
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setFilterSystem("All Systems");
+              }}
+              className="text-indigo-500 underline mt-2 text-sm"
+            >
+              ล้างตัวกรอง
+            </button>
+          )}
+        </div>
+      ) : (
+        filteredQuizzes.map((quiz) => {
+          const isAnswered = userAnswers[quiz.id] !== undefined;
+          const userSelected = userAnswers[quiz.id];
+          const isCorrect = userSelected === quiz.correctIndex;
+
+          return (
+            <div
+              key={quiz.id}
+              className={`bg-white border rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-all ${
+                isAnswered
+                  ? isCorrect
+                    ? "border-green-200 bg-green-50/20"
+                    : "border-red-200 bg-red-50/20"
+                  : "border-gray-200"
+              }`}
+            >
+              {editingId === quiz.id ? (
+                // --- Edit Mode (คงเดิม) ---
+                <div className="p-4 space-y-3 bg-indigo-50">
+                  <label className="text-xs font-bold text-indigo-600">
+                    แก้ไขคำถาม:
+                  </label>
+                  <textarea
+                    className="w-full p-2 border rounded"
+                    value={editForm.question}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, question: e.target.value })
+                    }
+                  />
+                  <div className="grid grid-cols-1 gap-2">
+                    {editForm.options.map((opt, idx) => (
+                      <input
                         key={idx}
-                        className={`text-sm p-2 rounded ${
-                          idx === quiz.correctIndex
-                            ? "bg-green-100 text-green-800 font-bold border border-green-200"
-                            : "text-gray-600"
+                        className={`w-full p-2 border rounded ${
+                          idx === editForm.correctIndex
+                            ? "border-green-500 bg-green-50"
+                            : ""
                         }`}
-                      >
-                        {idx === quiz.correctIndex && "✅ "} {opt}
-                      </div>
+                        value={opt}
+                        onChange={(e) => {
+                          const newOpts = [...editForm.options];
+                          newOpts[idx] = e.target.value;
+                          setEditForm({ ...editForm, options: newOpts });
+                        }}
+                      />
                     ))}
-                    <div className="mt-3 p-3 bg-blue-50 text-blue-900 text-sm rounded leading-relaxed">
-                      <strong>💡 คำอธิบาย:</strong> {quiz.explanation}
+                  </div>
+                  <label className="text-xs font-bold text-indigo-600">
+                    เฉลยละเอียด:
+                  </label>
+                  <textarea
+                    className="w-full p-2 border rounded text-sm"
+                    value={editForm.explanation}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, explanation: e.target.value })
+                    }
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      onClick={() => setEditingId(null)}
+                      className="px-3 py-1 text-gray-500"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      onClick={saveEdit}
+                      className="px-3 py-1 bg-indigo-600 text-white rounded"
+                    >
+                      บันทึก
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // --- View / Play Mode (คงเดิม) ---
+                <div
+                  onClick={() =>
+                    setExpandedId(expandedId === quiz.id ? null : quiz.id)
+                  }
+                  className="cursor-pointer"
+                >
+                  <div className="p-4 flex justify-between items-start gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        {/* System Badge */}
+                        <span className="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded font-bold uppercase">
+                          {quiz.system || "General"}
+                        </span>
+                        {/* Mode Badge */}
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${
+                            quiz.mode === "case"
+                              ? "bg-purple-100 text-purple-700"
+                              : "bg-pink-100 text-pink-700"
+                          }`}
+                        >
+                          {quiz.mode || "Quiz"}
+                        </span>
+                        {/* Result Badge */}
+                        {isAnswered && (
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                              isCorrect
+                                ? "bg-green-100 text-green-700"
+                                : "bg-red-100 text-red-700"
+                            }`}
+                          >
+                            {isCorrect ? "CORRECT" : "WRONG"}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="font-bold text-gray-800 text-sm md:text-base leading-relaxed">
+                        {quiz.question}
+                      </h3>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {isAnswered && (
+                        <button
+                          onClick={(e) => resetQuiz(quiz.id, e)}
+                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                          title="ทำใหม่อีกครั้ง"
+                        >
+                          <RefreshCw size={16} />
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEdit(quiz);
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(quiz.id);
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
+
+                  {/* Expanded Area */}
+                  {expandedId === quiz.id && (
+                    <div
+                      className="px-4 pb-4 animate-in fade-in"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="space-y-2 mt-2 pl-0 md:pl-4 border-l-0 md:border-l-2 border-indigo-100">
+                        {quiz.options.map((opt, idx) => {
+                          let btnClass =
+                            "border-gray-200 hover:bg-gray-50 text-gray-600";
+                          if (isAnswered) {
+                            if (idx === quiz.correctIndex)
+                              btnClass =
+                                "bg-green-100 border-green-300 text-green-800 font-bold";
+                            else if (
+                              idx === userSelected &&
+                              idx !== quiz.correctIndex
+                            )
+                              btnClass =
+                                "bg-red-100 border-red-300 text-red-800";
+                            else btnClass = "opacity-50 border-gray-100";
+                          }
+                          return (
+                            <button
+                              key={idx}
+                              disabled={isAnswered}
+                              onClick={() => handleSelectAnswer(quiz.id, idx)}
+                              className={`w-full text-left p-3 rounded-lg border transition-all text-sm mb-1 flex items-center gap-2 ${btnClass}`}
+                            >
+                              <div
+                                className={`w-5 h-5 rounded-full border flex items-center justify-center text-[10px] ${
+                                  isAnswered && idx === quiz.correctIndex
+                                    ? "bg-green-500 border-green-500 text-white"
+                                    : isAnswered && idx === userSelected
+                                    ? "bg-red-500 border-red-500 text-white"
+                                    : "border-gray-300"
+                                }`}
+                              >
+                                {String.fromCharCode(65 + idx)}
+                              </div>
+                              {opt}
+                              {isAnswered && idx === quiz.correctIndex && (
+                                <CheckCircle
+                                  size={14}
+                                  className="ml-auto text-green-600"
+                                />
+                              )}
+                              {isAnswered &&
+                                idx === userSelected &&
+                                idx !== quiz.correctIndex && (
+                                  <X
+                                    size={14}
+                                    className="ml-auto text-red-500"
+                                  />
+                                )}
+                            </button>
+                          );
+                        })}
+                        {isAnswered && (
+                          <div className="mt-4 p-3 bg-blue-50/80 text-blue-900 text-sm rounded-lg leading-relaxed border border-blue-100 animate-in slide-in-from-top-1">
+                            <strong className="flex items-center gap-1 mb-1">
+                              💡 คำอธิบาย:
+                            </strong>
+                            {quiz.explanation}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          )}
-        </div>
-      ))}
+          );
+        })
+      )}
     </div>
   );
 };
@@ -2564,6 +3089,12 @@ export default function MedGuideApp() {
   // --- 🧩 Quiz Bank State (ส่วนเพิ่มใหม่) ---
   const [activeTab, setActiveTab] = useState("knowledge"); // 'knowledge' = หน้าอ่านสรุป, 'quiz' = หน้าคลังข้อสอบ
   const [quizzes, setQuizzes] = useState([]); // ตัวแปรเก็บโจทย์ทั้งหมด
+  // 🟢 State ใหม่: เก็บคำตอบตอน Preview (แก้ชื่อตัวแปร dependency เป็น quizzes)
+  const [previewAnswers, setPreviewAnswers] = useState({});
+
+  useEffect(() => {
+    setPreviewAnswers({});
+  }, [quizzes]);
 
   // โหลดโจทย์จาก Firebase (Realtime Update)
   useEffect(() => {
@@ -3231,14 +3762,15 @@ export default function MedGuideApp() {
                 )}
               </div>
             </div>
-            {/* --- Tab Switcher (วางไว้ใน Header หรือ ใต้ Header ก็ได้) --- */}
+
+            {/* --- Tab Switcher (Fixed Colors for Light/Dark) --- */}
             <div className="flex justify-center gap-4 mt-2 mb-1">
               <button
                 onClick={() => setActiveTab("knowledge")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${
                   activeTab === "knowledge"
-                    ? "bg-white text-indigo-600 shadow-md scale-105"
-                    : "text-white/80 hover:bg-white/10"
+                    ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-600 dark:text-white shadow-md scale-105" // Active: ม่วงอ่อน(Light) / ม่วงเข้ม(Dark)
+                    : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800" // Inactive: เทาเข้ม(Light) / เทาจาง(Dark)
                 }`}
               >
                 <FileText size={16} /> สรุปเนื้อหา
@@ -3247,8 +3779,8 @@ export default function MedGuideApp() {
                 onClick={() => setActiveTab("quiz")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${
                   activeTab === "quiz"
-                    ? "bg-white text-pink-600 shadow-md scale-105"
-                    : "text-white/80 hover:bg-white/10"
+                    ? "bg-pink-100 text-pink-700 dark:bg-pink-600 dark:text-white shadow-md scale-105" // Active: ชมพูอ่อน(Light) / ชมพูเข้ม(Dark)
+                    : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800" // Inactive: เทาเข้ม(Light) / เทาจาง(Dark)
                 }`}
               >
                 <Brain size={16} /> คลังข้อสอบ ({quizzes.length})
@@ -3663,6 +4195,7 @@ export default function MedGuideApp() {
         onClose={() => setShowAIQuiz(false)}
         allData={knowledgeBase}
         savedQuizzes={quizzes} // 🟢 ส่งโจทย์เก่าเข้าไปด้วย เพื่อกันซ้ำ
+        systems={systems}
       />
     </div>
   );
