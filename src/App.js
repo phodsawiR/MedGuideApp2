@@ -2387,44 +2387,39 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
     }
 
     try {
-      // 📝 แนะนำให้ใช้ Prompt นี้ครับ (เสถียรสุด + มีตัวอย่างให้ AI ลอก)
-      // 📝 Prompt Engineering (MDCU Compre Style)
-      // 📝 Prompt Engineering (Dynamic Mode: Rapid vs Case)
+      // -----------------------------------------------------
+      // 3️⃣ Prompt Engineering (Language Split)
+      // -----------------------------------------------------
 
-      let taskInstruction = "";
-      let styleExample = "";
+      let modeInstruction = "";
+      let jsonExample = "";
 
       if (mode === "rapid") {
-        // 🚀 โหมด Rapid Fire: ห้ามเล่าเรื่อง ถามตรงๆ วัดความจำ
-        taskInstruction = `
-         TASK: Create a "Rapid Fire" Question (Direct Recall).
-         
-         ⛔ PROHIBITED: Do NOT write a clinical vignette (No "A 45-year-old man...").
-         
-         ✅ REQUIRED STYLE:
-         - Ask DIRECTLY about associations, drug contraindications, side effects, triads, or specific pathogens.
-         - Length: 1-2 sentences maximum.
-         - Format examples: "What is the drug of choice for...?", "Which organism causes...?", "The mechanism of drug X is...?"
+        // 🇹🇭 Rapid Fire: ภาษาไทย (ถามตรง)
+        modeInstruction = `
+         TASK: Create a "Rapid Fire" Question in THAI (ภาษาไทย).
+         ⛔ PROHIBITED: Do NOT write a long case.
+         ✅ STYLE: 
+         - Ask DIRECTLY in Thai (can use English for medical terms).
+         - Focus on High-Yield Associations / Contraindications / Mechanisms.
+         - Example: "ยาที่ห้ามให้ในคนท้องที่มีประวัติ Hypertension คือยาอะไร?", "กลไกหลักของยา Aspirin คือ?"
        `;
-
-        styleExample = `
-         "question": "Which antihypertensive drug class is absolutely contraindicated in pregnancy?",
+        jsonExample = `
+         "question": "ยา antihypertensive ตัวใดที่ห้ามใช้ในคนท้องเด็ดขาด?",
          "options": ["Methyldopa", "Labetalol", "ACE Inhibitors", "Hydralazine", "Nifedipine"],
          "correctIndex": 2,
          "explanation": "ACE Inhibitors ห้ามใช้ในคนท้องเพราะทำให้เกิด Renal dysgenesis..."
        `;
       } else {
-        // 🏥 โหมด Case: เล่าอาการคนไข้ (MDCU Style)
-        taskInstruction = `
-         TASK: Create a "Clinical Case" Question (MDCU Compre Style).
-         
-         ✅ REQUIRED STYLE:
-         - Provide a short clinical vignette (Patient demographics, symptoms, vital signs).
-         - Ask for Diagnosis, Management, or Underlying Mechanism.
-         - Focus on integration of Basic Science (Patho/Pharm/Micro) and Clinical.
+        // 🇺🇸 Case Mode: ภาษาอังกฤษ (MDCU/USMLE Style)
+        modeInstruction = `
+         TASK: Create a "Clinical Case" Question in ENGLISH.
+         ✅ STYLE: 
+         - Write a Clinical Vignette (Patient, Symptoms, Signs) in ENGLISH.
+         - Question must be in ENGLISH.
+         - Focus on Diagnosis / Management / Pathophysiology.
        `;
-
-        styleExample = `
+        jsonExample = `
          "question": "A 30-year-old female presents with fever and dysuria. Urinalysis shows leukocyte esterase positive. What is the most likely pathogen?",
          "options": ["E. coli", "Klebsiella", "Proteus", "S. saprophyticus", "Pseudomonas"],
          "correctIndex": 0,
@@ -2433,29 +2428,34 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
       }
 
       const prompt = `
-       Act as a Medical Exam Expert (USMLE Step 2 & Step 1 Integration).
-       
-       CONTEXT FROM DATABASE:
-       ${contextText}
+      Act as a Medical Exam Expert (MDCU & USMLE Style).
+      
+      CONTEXT DATABASE:
+      ${contextText}
 
-       USER REQUEST:
-       - Keyword: "${keyword || "RANDOM"}"
-       - Target System: "${targetSystem}"
-       - Mode: ${mode.toUpperCase()}
+      USER REQUEST:
+      - Keyword: "${keyword || "RANDOM"}"
+      - Target System: "${targetSystem}"
+      - Mode: ${mode.toUpperCase()}
+      - Instruction: ${
+        targetSystem === "Auto"
+          ? "Classify appropriately."
+          : `FORCE CLASSIFY as ${targetSystem}.`
+      }
 
-       ${taskInstruction}
-       
-       🚨 CRITICAL RULES:
-       1. Return ONLY raw JSON.
-       2. Explanation must be in Thai.
-       3. Options must be plausible (5 choices).
+      ${modeInstruction}
+      
+      🚨 CRITICAL RULES:
+      1. Return ONLY raw JSON.
+      2. Explanation must be in THAI (อธิบายละเอียดเป็นภาษาไทย).
+      3. Options must be plausible (5 choices).
 
-       👇 STRICT OUTPUT FORMAT (Follow this example):
-       {
-         ${styleExample},
-         "system": "${targetSystem === "Auto" ? "General" : targetSystem}"
-       }
-     `;
+      👇 STRICT OUTPUT FORMAT (Example):
+      {
+        ${jsonExample},
+        "system": "${targetSystem === "Auto" ? "General" : targetSystem}"
+      }
+    `;
       // 🚀 4. Fetch API (ใช้ระบบป้องกัน Error แบบใหม่)
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
