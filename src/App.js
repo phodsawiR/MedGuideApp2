@@ -2389,45 +2389,73 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
     try {
       // 📝 แนะนำให้ใช้ Prompt นี้ครับ (เสถียรสุด + มีตัวอย่างให้ AI ลอก)
       // 📝 Prompt Engineering (MDCU Compre Style)
+      // 📝 Prompt Engineering (Dynamic Mode: Rapid vs Case)
+
+      let taskInstruction = "";
+      let styleExample = "";
+
+      if (mode === "rapid") {
+        // 🚀 โหมด Rapid Fire: ห้ามเล่าเรื่อง ถามตรงๆ วัดความจำ
+        taskInstruction = `
+         TASK: Create a "Rapid Fire" Question (Direct Recall).
+         
+         ⛔ PROHIBITED: Do NOT write a clinical vignette (No "A 45-year-old man...").
+         
+         ✅ REQUIRED STYLE:
+         - Ask DIRECTLY about associations, drug contraindications, side effects, triads, or specific pathogens.
+         - Length: 1-2 sentences maximum.
+         - Format examples: "What is the drug of choice for...?", "Which organism causes...?", "The mechanism of drug X is...?"
+       `;
+
+        styleExample = `
+         "question": "Which antihypertensive drug class is absolutely contraindicated in pregnancy?",
+         "options": ["Methyldopa", "Labetalol", "ACE Inhibitors", "Hydralazine", "Nifedipine"],
+         "correctIndex": 2,
+         "explanation": "ACE Inhibitors ห้ามใช้ในคนท้องเพราะทำให้เกิด Renal dysgenesis..."
+       `;
+      } else {
+        // 🏥 โหมด Case: เล่าอาการคนไข้ (MDCU Style)
+        taskInstruction = `
+         TASK: Create a "Clinical Case" Question (MDCU Compre Style).
+         
+         ✅ REQUIRED STYLE:
+         - Provide a short clinical vignette (Patient demographics, symptoms, vital signs).
+         - Ask for Diagnosis, Management, or Underlying Mechanism.
+         - Focus on integration of Basic Science (Patho/Pharm/Micro) and Clinical.
+       `;
+
+        styleExample = `
+         "question": "A 30-year-old female presents with fever and dysuria. Urinalysis shows leukocyte esterase positive. What is the most likely pathogen?",
+         "options": ["E. coli", "Klebsiella", "Proteus", "S. saprophyticus", "Pseudomonas"],
+         "correctIndex": 0,
+         "explanation": "E. coli เป็นสาเหตุที่พบบ่อยที่สุดของ UTI..."
+       `;
+      }
+
       const prompt = `
-        Act as a Medical Comprehensive Exam Expert (integrating USMLE Step 1 & Step 2 CK).
-        
-        CONTEXT FROM DATABASE:
-        ${contextText}
+       Act as a Medical Exam Expert (USMLE Step 2 & Step 1 Integration).
+       
+       CONTEXT FROM DATABASE:
+       ${contextText}
 
-        USER REQUEST:
-        - Keyword: "${keyword || "RANDOM"}"
-        - Target System: "${targetSystem}"
-        - Instruction: ${
-          targetSystem === "Auto"
-            ? "Classify appropriately."
-            : `FORCE CLASSIFY as ${targetSystem}.`
-        }
+       USER REQUEST:
+       - Keyword: "${keyword || "RANDOM"}"
+       - Target System: "${targetSystem}"
+       - Mode: ${mode.toUpperCase()}
 
-        TASK:
-        Create 1 High-Yield Multiple Choice Question matching the style of "Medical School Comprehensive Exams".
-        
-        🎯 EXAM STYLE GUIDELINES (Based on MDCU Compre):
-        - Focus heavily on **Pathophysiology**, **Mechanism of Action (Drugs)**, **Embryology**, **Genetics**, and **Clinical Diagnosis**.
-        - Questions can be direct (e.g., "What is the mechanism?", "What is the diagnosis?", "What is the causative organism?").
-        - Vignettes can be short and concise.
-        - Options must be plausible (5 choices).
+       ${taskInstruction}
+       
+       🚨 CRITICAL RULES:
+       1. Return ONLY raw JSON.
+       2. Explanation must be in Thai.
+       3. Options must be plausible (5 choices).
 
-        🚨 CRITICAL RULES:
-        1. Return ONLY raw JSON.
-        2. Explanation must be in Thai (Explain the mechanism/reasoning clearly).
-        3. Strict JSON format.
-
-        👇 STRICT OUTPUT FORMAT (Example):
-        {
-          "question": "A patient presents with... [Clinical Vignette]. What is the underlying mechanism of this condition?",
-          "options": ["Defect in fibrillin-1", "Mutation in FGFR3", "Defect in Type I Collagen", "Trisomy 21", "X-linked recessive trait"],
-          "correctIndex": 0,
-          "explanation": "คำอธิบายภาษาไทย: โรคนี้คือ Marfan syndrome ซึ่งเกิดจากความผิดปกติของ gene Fibrillin-1...",
-          "system": "Genetics"
-        }
-      `;
-
+       👇 STRICT OUTPUT FORMAT (Follow this example):
+       {
+         ${styleExample},
+         "system": "${targetSystem === "Auto" ? "General" : targetSystem}"
+       }
+     `;
       // 🚀 4. Fetch API (ใช้ระบบป้องกัน Error แบบใหม่)
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
