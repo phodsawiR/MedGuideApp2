@@ -2319,25 +2319,21 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
   if (!isOpen) return null;
 
   const handleGenerate = async () => {
-    // 🛑 1. Validation Logic
+    // 🔒 Validation: ถ้าเป็น Auto (ไม่ระบุหมวด) และไม่พิมพ์อะไรเลย -> ห้ามไปต่อ
     if (!keyword.trim() && targetSystem === "Auto") {
       alert("กรุณาพิมพ์หัวข้อ หรือเลือกหมวดหมู่ก่อนครับ");
       return;
     }
 
     setLoading(true);
-    setError(null);
     setQuizData(null);
-    setShowAnswer(false);
 
-    let contextText = "";
+    let contextDocs = [];
 
-    // 🎲 CASE 1: Random Mode (เลือกหมวด แต่ไม่พิมพ์คำค้น)
+    // 🎲 CASE 1: Random Mode (เลือกหมวด + ไม่พิมพ์ Keyword) -> สุ่มเนื้อหา
     if (!keyword.trim() && targetSystem !== "Auto") {
       console.log("Random Mode Activated for:", targetSystem);
-      const systemDocs = (allData || []).filter(
-        (d) => d.system === targetSystem
-      );
+      let systemDocs = (allData || []).filter((d) => d.system === targetSystem);
 
       if (systemDocs.length === 0) {
         alert(
@@ -2346,15 +2342,11 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
         setLoading(false);
         return;
       }
-
-      // สุ่มหยิบมา 10 เรื่อง (ตาม Logic เดิมของคุณ)
+      // Shuffle และหยิบมา 10 เรื่อง
       const shuffled = systemDocs.sort(() => 0.5 - Math.random());
-      contextText = shuffled
-        .slice(0, 10)
-        .map((d) => `Topic: ${d.topic}\nContent: ${d.summary}`)
-        .join("\n----------------\n");
+      contextDocs = shuffled.slice(0, 10);
     }
-    // 🔍 CASE 2: Search Mode (ใช้ Logic เดิมของคุณที่ฉลาดกว่า)
+    // 🔍 CASE 2: Search Mode (พิมพ์ Keyword) -> ค้นหาเนื้อหา
     else {
       let allDocs = allData || [];
       const scoredDocs = allDocs.map((doc) => {
@@ -2374,141 +2366,115 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
         return { doc, score };
       });
 
-      // เรียงตามคะแนนความเกี่ยวข้อง
       scoredDocs.sort((a, b) => b.score - a.score);
-
-      // เอา 40 อันแรก หรือถ้าไม่เจอเลยเอา 20 อันแรก (Fallback เดิม)
-      let selectedDocs = scoredDocs.slice(0, 40).map((item) => item.doc);
-      if (selectedDocs.length === 0) selectedDocs = allDocs.slice(0, 20);
-
-      contextText = selectedDocs
-        .map((d) => `Topic: ${d.topic}\nContent: ${d.summary}`)
-        .join("\n----------------\n");
+      contextDocs = scoredDocs.slice(0, 40).map((item) => item.doc);
+      if (contextDocs.length === 0) contextDocs = allDocs.slice(0, 20);
     }
 
+    const contextText = contextDocs
+      .map((d) => `ID: ${d.id} | Topic: ${d.topic}\nContent: ${d.summary}`)
+      .join("\n----------------\n");
+
     try {
-      // -----------------------------------------------------
-      // 3️⃣ Prompt Engineering (Language Split)
-      // -----------------------------------------------------
+      // 1. จัดการ User Request
+      const userRequest = keyword.trim()
+        ? `User Keyword: "${keyword}"`
+        : `User Keyword: NONE (Randomly select a HIGH-YIELD topic from the provided context)`;
 
-      let modeInstruction = "";
-      let jsonExample = "";
+      // 2. จัดการ System (Auto หรือ Force)
+      const systemInstruction =
+        targetSystem === "Auto"
+          ? "Classify this question into the most appropriate Medical System based on content."
+          : `FORCE CLASSIFY this question as "${targetSystem}".`;
 
-      if (mode === "rapid") {
-        // 🇹🇭 Rapid Fire: ภาษาไทย (ถามตรง)
-        modeInstruction = `
-         TASK: Create a "Rapid Fire" Question in THAI (ภาษาไทย).
-         ⛔ PROHIBITED: Do NOT write a long case.
-         ✅ STYLE: 
-         - Ask DIRECTLY in Thai (can use English for medical terms).
-         - Focus on High-Yield Associations / Contraindications / Mechanisms.
-         - Example: "ยาที่ห้ามให้ในคนท้องที่มีประวัติ Hypertension คือยาอะไร?", "กลไกหลักของยา Aspirin คือ?"
-       `;
-        jsonExample = `
-         "question": "ยา antihypertensive ตัวใดที่ห้ามใช้ในคนท้องเด็ดขาด?",
-         "options": ["Methyldopa", "Labetalol", "ACE Inhibitors", "Hydralazine", "Nifedipine"],
-         "correctIndex": 2,
-         "explanation": "ACE Inhibitors ห้ามใช้ในคนท้องเพราะทำให้เกิด Renal dysgenesis..."
-       `;
-      } else {
-        // 🇺🇸 Case Mode: ภาษาอังกฤษ (MDCU/USMLE Style)
-        modeInstruction = `
-         TASK: Create a "Clinical Case" Question in ENGLISH.
-         ✅ STYLE: 
-         - Write a Clinical Vignette (Patient, Symptoms, Signs) in ENGLISH.
-         - Question must be in ENGLISH.
-         - Focus on Diagnosis / Management / Pathophysiology.
-       `;
-        jsonExample = `
-         "question": "A 30-year-old female presents with fever and dysuria. Urinalysis shows leukocyte esterase positive. What is the most likely pathogen?",
-         "options": ["E. coli", "Klebsiella", "Proteus", "S. saprophyticus", "Pseudomonas"],
-         "correctIndex": 0,
-         "explanation": "E. coli เป็นสาเหตุที่พบบ่อยที่สุดของ UTI..."
-       `;
-      }
+      // 3. จัดการ Mode (Case หรือ Rapid) 🟢 แยกโหมดชัดเจนเหมือนเดิม
+      const modeInstruction =
+        mode === "case"
+          ? "Create a Clinical Vignette Question (Detailed Patient presentation: Age, Sex, CC, HPI, PE, Labs -> Question). Mimic NL1/USMLE Step 2 style."
+          : "Create a Rapid Fire / Fact-Check Question (Short, direct question focusing on high-yield facts, triads, or specific treatments).";
 
       const prompt = `
-      Act as a Medical Exam Expert (MDCU & USMLE Style).
-      
-      CONTEXT DATABASE:
-      ${contextText}
+        Act as a Senior Thai Medical Professor.
+        
+        ${userRequest}
+        TARGET SYSTEM: ${targetSystem} (${systemInstruction})
+        MODE: ${mode === "case" ? "Clinical Case" : "Rapid Fire"}
+        
+        DATABASE (Source of Truth):
+        ${contextText}
 
-      USER REQUEST:
-      - Keyword: "${keyword || "RANDOM"}"
-      - Target System: "${targetSystem}"
-      - Mode: ${mode.toUpperCase()}
-      - Instruction: ${
-        targetSystem === "Auto"
-          ? "Classify appropriately."
-          : `FORCE CLASSIFY as ${targetSystem}.`
-      }
+        ${
+          examRef
+            ? `REFERENCE STYLE (Mimic this style/difficulty): \n${examRef}`
+            : ""
+        }
 
-      ${modeInstruction}
-      
-      🚨 CRITICAL RULES:
-      1. Return ONLY raw JSON.
-      2. Explanation must be in THAI (อธิบายละเอียดเป็นภาษาไทย).
-      3. Options must be plausible (5 choices).
+        TASK:
+        1. Analyze the Context & Reference.
+        2. ${modeInstruction}
+        3. ${systemInstruction}
+        4. Explanation in Thai (Focus on Mechanism/Pathophysiology).
+        
+        ⚠️ CRITICAL INSTRUCTION (Anti-Hallucination): 
+        - DOUBLE CHECK that the "correctLetter" matches the actual correct option text.
+        - In the "explanation", START by explicitly stating the correct answer (e.g., "ตอบข้อ A: เพราะ...").
 
-      👇 STRICT OUTPUT FORMAT (Example):
-      {
-        ${jsonExample},
-        "system": "${targetSystem === "Auto" ? "General" : targetSystem}"
-      }
-    `;
-      // 🚀 4. Fetch API (ใช้ระบบป้องกัน Error แบบใหม่)
+        OUTPUT JSON format:
+        {
+          "question": "...",
+          "options": ["Option A", "Option B", "Option C", "Option D", "Option E"],
+          "correctLetter": "A",  // Use "A", "B", "C", "D", or "E" (Do NOT use Number Index)
+          "explanation": "ตอบข้อ [Letter]: ...",
+          "system": "${targetSystem === "Auto" ? "General" : targetSystem}" 
+        }
+      `;
+
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            // ✅ บังคับ JSON
-            generationConfig: { responseMimeType: "application/json" },
-            // ✅ ปลดล็อค Safety (สำคัญสำหรับศัพท์แพทย์)
-            safetySettings: [
-              {
-                category: "HARM_CATEGORY_HARASSMENT",
-                threshold: "BLOCK_ONLY_HIGH",
-              },
-              {
-                category: "HARM_CATEGORY_HATE_SPEECH",
-                threshold: "BLOCK_ONLY_HIGH",
-              },
-              {
-                category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                threshold: "BLOCK_ONLY_HIGH",
-              },
-              {
-                category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-                threshold: "BLOCK_ONLY_HIGH",
-              },
-            ],
-          }),
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
         }
       );
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(
-          errData.error?.message || `HTTP Error: ${response.status}`
-        );
-      }
-
       const data = await response.json();
+      if (!data.candidates || data.candidates.length === 0)
+        throw new Error("AI No Response");
 
-      if (!data.candidates || !data.candidates[0].content) {
-        throw new Error("AI ปฏิเสธการสร้างคำถาม (อาจติด Safety Filter)");
+      const textResponse = data.candidates[0].content.parts[0].text;
+      const jsonString = textResponse.replace(/```json|```/g, "").trim();
+
+      const generatedQuiz = JSON.parse(jsonString);
+
+      // 🟢 SELF-CORRECTION: แปลง Letter (A,B,C) -> Index (0,1,2) ให้ App เข้าใจ
+      const letterMap = {
+        A: 0,
+        B: 1,
+        C: 2,
+        D: 3,
+        E: 4,
+        a: 0,
+        b: 1,
+        c: 2,
+        d: 3,
+        e: 4,
+      };
+
+      if (
+        generatedQuiz.correctLetter &&
+        letterMap[generatedQuiz.correctLetter] !== undefined
+      ) {
+        generatedQuiz.correctIndex = letterMap[generatedQuiz.correctLetter];
+      } else if (generatedQuiz.correctIndex === undefined) {
+        // Fallback: ถ้า AI ลืมส่งมาทั้งคู่ (ยากที่จะเกิด) ให้ default เป็น 0
+        generatedQuiz.correctIndex = 0;
       }
 
-      const rawText = data.candidates[0].content.parts[0].text;
-      const parsedData = JSON.parse(rawText); // ไม่ต้อง replace ขยะแล้ว
-
-      setQuizData(parsedData);
+      setQuizData(generatedQuiz);
     } catch (err) {
-      console.error("Gen Error:", err);
-      setError(`❌ เกิดข้อผิดพลาด: ${err.message}`);
+      console.error(err);
+      alert("Error: " + err.message);
     } finally {
       setLoading(false);
     }
