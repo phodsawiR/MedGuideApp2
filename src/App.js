@@ -3900,7 +3900,7 @@ export default function MedGuideApp() {
                   </button>
                 </div>
                 <textarea
-                  className="w-full h-24 p-3 text-xs font-mono bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-y mb-3 transition-all"
+                  className="w-full h-96 p-3 text-xs font-mono bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-y mb-3 transition-all"
                   placeholder='วางโค้ดที่ได้จาก Gemini ตรงนี้... (เช่น [{"title": "...", ...}])'
                   value={jsonText}
                   onChange={(e) => setJsonText(e.target.value)}
@@ -3998,7 +3998,7 @@ export default function MedGuideApp() {
                     onChange={(e) =>
                       setNewTopic({ ...newTopic, summary: e.target.value })
                     }
-                    className="w-full p-2 border rounded-lg text-sm h-20"
+                    className="w-full p-3 border rounded-lg text-sm h-64 resize-y focus:ring-2 focus:ring-blue-500 outline-none"
                     placeholder="สรุปเนื้อหาสำคัญ..."
                   />
                 </div>
