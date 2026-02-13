@@ -2951,20 +2951,44 @@ const QuizBank = ({ quizzes, db }) => {
                   />
                   <div className="grid grid-cols-1 gap-2">
                     {editForm.options.map((opt, idx) => (
-                      <input
-                        key={idx}
-                        className={`w-full p-2 border rounded ${
-                          idx === editForm.correctIndex
-                            ? "border-green-500 bg-green-50"
-                            : ""
-                        }`}
-                        value={opt}
-                        onChange={(e) => {
-                          const newOpts = [...editForm.options];
-                          newOpts[idx] = e.target.value;
-                          setEditForm({ ...editForm, options: newOpts });
-                        }}
-                      />
+                      <div key={idx} className="flex items-center gap-2">
+                        {/* 🟢 ปุ่มเลือกข้อถูก (Radio) */}
+                        <button
+                          onClick={() =>
+                            setEditForm({ ...editForm, correctIndex: idx })
+                          }
+                          className={`flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
+                            idx === editForm.correctIndex
+                              ? "border-green-500 bg-green-500 text-white"
+                              : "border-gray-300 text-gray-300 hover:border-gray-400"
+                          }`}
+                          title="คลิกเพื่อตั้งเป็นข้อถูก"
+                        >
+                          {idx === editForm.correctIndex ? (
+                            <Check size={16} />
+                          ) : (
+                            <div className="w-2 h-2 rounded-full bg-gray-200" />
+                          )}
+                        </button>
+
+                        {/* ช่องแก้ข้อความ */}
+                        <input
+                          className={`flex-1 p-2 border rounded ${
+                            idx === editForm.correctIndex
+                              ? "border-green-500 bg-green-50 font-bold text-green-800"
+                              : "border-gray-300"
+                          }`}
+                          value={opt}
+                          onChange={(e) => {
+                            const newOpts = [...editForm.options];
+                            newOpts[idx] = e.target.value;
+                            setEditForm({ ...editForm, options: newOpts });
+                          }}
+                          placeholder={`ตัวเลือก ${String.fromCharCode(
+                            65 + idx
+                          )}`}
+                        />
+                      </div>
                     ))}
                   </div>
                   <label className="text-xs font-bold text-indigo-600">
