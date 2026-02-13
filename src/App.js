@@ -2301,7 +2301,7 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
 
   useEffect(() => localStorage.setItem("medGuide_examRef", examRef), [examRef]);
 
-  const GEMINI_API_KEY = "AIzaSyAZzuAm98ny6kglQeaNjA_PxWDivr9QxvU";
+  const GEMINI_API_KEY = "AIzaSyBDXte6pXXFzYewKKOwdJoMGR_lFQWxyWQ";
 
   useEffect(() => {
     if (!isOpen) {
