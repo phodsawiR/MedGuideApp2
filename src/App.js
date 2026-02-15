@@ -1910,6 +1910,7 @@ const TopicCard = ({
   onDelete,
   expanded, // 👈 รับค่าสถานะเปิด/ปิด
   onExpand, // 👈 รับฟังก์ชันกดปุ่ม
+  onGenerateSpecific
 }) => {
   // ✂️ ลบ const [expanded, setExpanded] = React.useState(false); ออกไปแล้ว
 
@@ -2173,6 +2174,20 @@ const TopicCard = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* --- 🟢 ปุ่มใหม่: สร้างโจทย์เจาะจง --- */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation(); // กันไม่ให้การ์ดขยาย
+              onGenerateSpecific(item); 
+            }}
+            className="flex items-center gap-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-2 py-1 rounded text-xs font-bold transition-colors mr-2"
+            title="สร้างโจทย์จากหัวข้อนี้"
+          >
+            <Zap size={14} /> โจทย์
+          </button>
+          {/* ---------------------------------- */}
+
+          
             {showAdmin && (
               <>
                 <button
@@ -2270,7 +2285,7 @@ const TopicCard = ({
 };
 
 // --- 🧠 AI Quiz Modal (Prompt + Target System Selector) ---
-const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
+const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes,externalQuizData}) => {
   const [keyword, setKeyword] = useState("");
   const [mode, setMode] = useState("case");
   const [loading, setLoading] = useState(false);
@@ -2300,6 +2315,11 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
   );
 
   useEffect(() => localStorage.setItem("medGuide_examRef", examRef), [examRef]);
+  useEffect(() => {
+    if (isOpen && externalQuizData) {
+      setQuizData(externalQuizData);
+    }
+  }, [isOpen, externalQuizData]);
 
   const GEMINI_API_KEY = "AIzaSyBDXte6pXXFzYewKKOwdJoMGR_lFQWxyWQ";
 
@@ -2475,6 +2495,86 @@ const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes }) => {
     } catch (err) {
       console.error(err);
       alert("Error: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================================
+  // 🆕 ฟังก์ชันใหม่: สร้างโจทย์เจาะจง + สั่ง AI ได้
+  // ==========================================
+  const handlecific = async (topicData) => {
+    // 1. เด้งถาม User ก่อนว่าอยากเน้นอะไร? (ใช้ window.prompt ง่ายสุดครับ)
+    const userFocus = window.prompt(
+      `หัวข้อ: ${topicData.topic}\n\nคุณต้องการเน้นจุดไหนเป็นพิเศษไหม?\n(เช่น: การวินิจฉัย, ยารักษา, กลไกการเกิดโรค, Side Effect)`,
+      "เน้นการวินิจฉัยและการแยกโรค (Diagnosis & DDx)" // ค่า Default
+    );
+
+    // ถ้ากด Cancel ก็ยกเลิกการทำรายการ
+    if (userFocus === null) return;
+
+    // 2. เปิดหน้า Loading
+    setShowAIModal(true);
+    setLoading(true);
+    setQuizData(null);
+
+    try {
+      // --- เตรียมข้อมูล (Context) แค่ 1 อัน (ประหยัดสุดๆ) ---
+      const contextText = `Topic: ${topicData.topic}\nSystem: ${topicData.system}\nContent: ${topicData.summary}`;
+
+      // --- สร้างคำสั่ง (Prompt) ---
+      // เอาสิ่งที่ User พิมพ์ (userFocus) ไปสั่ง AI โดยตรง
+      const prompt = `
+          Act as a Senior Medical Professor.
+          Task: Create 1 multiple-choice question (Clinical Case/Vignette) specifically about "${topicData.topic}".
+          
+          Strictly use this context:
+          ${contextText}
+
+          YOUR INSTRUCTION:
+          The user wants to focus on: "${userFocus}". 
+          (Please create a question that tests this specific aspect).
+
+          Requirements:
+          - 5 Options (A-E).
+          - Make it challenging suitable for medical students.
+          - Explanation must explain why the correct answer is right and others are wrong.
+
+          Output JSON format only:
+          { "question": "...", "options": ["A","B","C","D","E"], "correctLetter": "A", "explanation": "...", "system": "${topicData.system}" }
+        `;
+
+      // 3. ยิง API (ใช้รุ่น 2.0 Flash หรือ 3 Flash ตามที่มี)
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        }
+      );
+
+      const data = await response.json();
+
+      // ดัก Error
+      if (data.error) throw new Error(data.error.message);
+      if (!data.candidates || data.candidates.length === 0)
+        throw new Error("AI No Response");
+
+      // แปลงข้อมูล
+      const textResponse = data.candidates[0].content.parts[0].text;
+      const jsonString = textResponse.replace(/```json|```/g, "").trim();
+      const generatedQuiz = JSON.parse(jsonString);
+
+      // Map ตัวเลือก A->0
+      const letterMap = { A: 0, B: 1, C: 2, D: 3, E: 4 };
+      generatedQuiz.correctIndex = letterMap[generatedQuiz.correctLetter] ?? 0;
+
+      setQuizData(generatedQuiz);
+    } catch (err) {
+      console.error("Error:", err);
+      alert("เกิดข้อผิดพลาด: " + err.message);
+      setShowAIModal(false);
     } finally {
       setLoading(false);
     }
@@ -3153,6 +3253,67 @@ export default function MedGuideApp() {
   const [zoomContent, setZoomContent] = useState(null);
   const [showAIQuiz, setShowAIQuiz] = useState(false); // 🧠 State เปิดปิด AI Quiz Modal
   const [knowledgeBase, setKnowledgeBase] = useState([]);
+  // --- 🆕 State สำหรับส่งข้อมูลโจทย์เจาะจงไปที่ Modal ---
+  const [specificQuizData, setSpecificQuizData] = useState(null);
+
+  // --- 🆕 ฟังก์ชันสร้างโจทย์เจาะจง (วางไว้ใน MedGuideApp) ---
+  const handleGenerateSpecific = async (topicData) => {
+    // 1. ถาม User ว่าจะเน้นอะไร
+    const userFocus = window.prompt(
+      `หัวข้อ: ${topicData.topic}\n\nต้องการเน้นจุดไหนเป็นพิเศษไหม?`,
+      "เน้นการวินิจฉัยและการแยกโรค (Diagnosis & DDx)"
+    );
+    if (userFocus === null) return; // กด Cancel
+
+    setIsLoading(true); // หมุนติ้วๆ ที่หน้าหลักชั่วคราว
+
+    try {
+      // ⚠️ อย่าลืมเช็ค Key ให้ถูกต้องนะครับ
+      const GEMINI_API_KEY = "AIzaSyBDXte6pXXFzYewKKOwdJoMGR_lFQWxyWQ";
+
+      const contextText = `Topic: ${topicData.topic}\nSystem: ${topicData.system}\nContent: ${topicData.summary}`;
+
+      const prompt = `
+        Act as a Senior Medical Professor.
+        Task: Create 1 multiple-choice question strictly about "${topicData.topic}".
+        
+        Context:
+        ${contextText}
+
+        USER FOCUS: "${userFocus}" (Please focus the question on this aspect).
+
+        Output JSON only:
+        { "question": "...", "options": ["A","B","C","D","E"], "correctLetter": "A", "explanation": "...", "system": "${topicData.system}" }
+      `;
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        }
+      );
+
+      const data = await response.json();
+      if (!data.candidates) throw new Error("AI No Response");
+
+      const textResponse = data.candidates[0].content.parts[0].text;
+      const jsonString = textResponse.replace(/```json|```/g, "").trim();
+      const generatedQuiz = JSON.parse(jsonString);
+
+      const letterMap = { A: 0, B: 1, C: 2, D: 3, E: 4 };
+      generatedQuiz.correctIndex = letterMap[generatedQuiz.correctLetter] ?? 0;
+
+      // ✅ ส่งข้อมูลไปที่ Modal และสั่งเปิด
+      setSpecificQuizData(generatedQuiz);
+      setShowAIQuiz(true);
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const [readStatus, setReadStatus] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -4170,6 +4331,7 @@ export default function MedGuideApp() {
                       showAdmin={showAdmin}
                       onEdit={handleEditClick}
                       onDelete={handleDeleteTopic}
+                      onGenerateSpecific={handleGenerateSpecific}
                       // ส่วนขยายการ์ดที่คุณทำไว้
                       expanded={expandedTopicId === item.id}
                       onExpand={() =>
@@ -4278,6 +4440,7 @@ export default function MedGuideApp() {
         allData={knowledgeBase}
         savedQuizzes={quizzes} // 🟢 ส่งโจทย์เก่าเข้าไปด้วย เพื่อกันซ้ำ
         systems={systems}
+        externalQuizData={specificQuizData}
       />
     </div>
   );
