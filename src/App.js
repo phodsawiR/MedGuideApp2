@@ -1850,7 +1850,7 @@ const MASTER_SEED_DATA = [
 
 // --- Firebase Setup ---
 const firebaseConfig = {
-  apiKey: "AIzaSyA1PauDwTDzJ4UfeWjlIBU9IZqL6r67WvI",
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
   authDomain: "medguide-34566.firebaseapp.com",
   projectId: "medguide-34566",
   storageBucket: "medguide-34566.firebasestorage.app",
@@ -2326,8 +2326,7 @@ const AIQuizModal = ({
     }
   }, [isOpen, externalQuizData]);
 
-  const GEMINI_API_KEY = "AIzaSyBDXte6pXXFzYewKKOwdJoMGR_lFQWxyWQ";
-
+  const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
   useEffect(() => {
     if (!isOpen) {
       setQuizData(null);
@@ -3277,7 +3276,7 @@ export default function MedGuideApp() {
     setIsLoading(true);
 
     try {
-      const GEMINI_API_KEY = "AIzaSyBDXte6pXXFzYewKKOwdJoMGR_lFQWxyWQ";
+      const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 
       const contextText = `Topic: ${topicData.topic}\nSystem: ${topicData.system}\nContent: ${topicData.summary}`;
 
