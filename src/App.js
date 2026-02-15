@@ -1910,7 +1910,7 @@ const TopicCard = ({
   onDelete,
   expanded, // 👈 รับค่าสถานะเปิด/ปิด
   onExpand, // 👈 รับฟังก์ชันกดปุ่ม
-  onGenerateSpecific
+  onGenerateSpecific,
 }) => {
   // ✂️ ลบ const [expanded, setExpanded] = React.useState(false); ออกไปแล้ว
 
@@ -2175,19 +2175,18 @@ const TopicCard = ({
           </div>
           <div className="flex items-center gap-2">
             {/* --- 🟢 ปุ่มใหม่: สร้างโจทย์เจาะจง --- */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation(); // กันไม่ให้การ์ดขยาย
-              onGenerateSpecific(item); 
-            }}
-            className="flex items-center gap-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-2 py-1 rounded text-xs font-bold transition-colors mr-2"
-            title="สร้างโจทย์จากหัวข้อนี้"
-          >
-            <Zap size={14} /> โจทย์
-          </button>
-          {/* ---------------------------------- */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation(); // กันไม่ให้การ์ดขยาย
+                onGenerateSpecific(item);
+              }}
+              className="flex items-center gap-1 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-2 py-1 rounded text-xs font-bold transition-colors mr-2"
+              title="สร้างโจทย์จากหัวข้อนี้"
+            >
+              <Zap size={14} /> โจทย์
+            </button>
+            {/* ---------------------------------- */}
 
-          
             {showAdmin && (
               <>
                 <button
@@ -2285,7 +2284,13 @@ const TopicCard = ({
 };
 
 // --- 🧠 AI Quiz Modal (Prompt + Target System Selector) ---
-const AIQuizModal = ({ isOpen, onClose, allData, savedQuizzes,externalQuizData}) => {
+const AIQuizModal = ({
+  isOpen,
+  onClose,
+  allData,
+  savedQuizzes,
+  externalQuizData,
+}) => {
   const [keyword, setKeyword] = useState("");
   const [mode, setMode] = useState("case");
   const [loading, setLoading] = useState(false);
@@ -3218,7 +3223,7 @@ const QuizBank = ({ quizzes, db }) => {
                             <strong className="flex items-center gap-1 mb-1">
                               💡 คำอธิบาย:
                             </strong>
-                            {quiz.explanation}
+                            {renderMath(quiz.explanation)}
                           </div>
                         )}
                       </div>
@@ -3256,31 +3261,34 @@ export default function MedGuideApp() {
   // --- 🆕 State สำหรับส่งข้อมูลโจทย์เจาะจงไปที่ Modal ---
   const [specificQuizData, setSpecificQuizData] = useState(null);
 
- // --- 🆕 ฟังก์ชันสร้างโจทย์เจาะจง (แบบไม่ซ้ำ) ---
- const handleGenerateSpecific = async (topicData) => {
-  // 1. ดึงประวัติคำถามเก่าของหัวข้อนี้
-  const previousQuestions = questionHistory[topicData.id] || [];
-  
-  // 2. ถาม User (Prompt)
-  const defaultFocus = "Rapid Fire (ถามตรง-ตอบตรง เน้น Key Concept)";
-  const userFocus = window.prompt(
-    `หัวข้อ: ${topicData.topic}\n\nต้องการเน้นจุดไหนเป็นพิเศษไหม?`, 
-    defaultFocus
-  );
-  if (userFocus === null) return; 
+  // --- 🆕 ฟังก์ชันสร้างโจทย์เจาะจง (แบบไม่ซ้ำ) ---
+  const handleGenerateSpecific = async (topicData) => {
+    // 1. ดึงประวัติคำถามเก่าของหัวข้อนี้
+    const previousQuestions = questionHistory[topicData.id] || [];
 
-  setIsLoading(true); 
-  
-  try {
-    const GEMINI_API_KEY = "AIzaSyBDXte6pXXFzYewKKOwdJoMGR_lFQWxyWQ"; 
-    
-    const contextText = `Topic: ${topicData.topic}\nSystem: ${topicData.system}\nContent: ${topicData.summary}`;
+    // 2. ถาม User (Prompt)
+    const defaultFocus = "Rapid Fire (ถามตรง-ตอบตรง เน้น Key Concept)";
+    const userFocus = window.prompt(
+      `หัวข้อ: ${topicData.topic}\n\nต้องการเน้นจุดไหนเป็นพิเศษไหม?`,
+      defaultFocus
+    );
+    if (userFocus === null) return;
 
-    // 🚫 สร้างรายการ "ห้ามถาม" (ส่งไปแค่ 3 ข้อล่าสุดพอครับ เดี๋ยวเปลือง Token)
-    const avoidList = previousQuestions.slice(-3).map((q, i) => `${i+1}. ${q}`).join("\n");
+    setIsLoading(true);
 
-    // 📝 Prompt แบบกันซ้ำ
-    const prompt = `
+    try {
+      const GEMINI_API_KEY = "AIzaSyBDXte6pXXFzYewKKOwdJoMGR_lFQWxyWQ";
+
+      const contextText = `Topic: ${topicData.topic}\nSystem: ${topicData.system}\nContent: ${topicData.summary}`;
+
+      // 🚫 สร้างรายการ "ห้ามถาม" (ส่งไปแค่ 3 ข้อล่าสุดพอครับ เดี๋ยวเปลือง Token)
+      const avoidList = previousQuestions
+        .slice(-3)
+        .map((q, i) => `${i + 1}. ${q}`)
+        .join("\n");
+
+      // 📝 Prompt แบบกันซ้ำ
+      const prompt = `
       Act as a Senior Medical Professor.
       Task: Create 1 multiple-choice question in "Rapid Fire" style specifically about "${topicData.topic}".
       
@@ -3302,40 +3310,39 @@ export default function MedGuideApp() {
       { "question": "...", "options": ["A","B","C","D","E"], "correctLetter": "A", "explanation": "...", "system": "${topicData.system}" }
     `;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-      }
-    );
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        }
+      );
 
-    const data = await response.json();
-    if (!data.candidates) throw new Error("AI No Response");
-    
-    const textResponse = data.candidates[0].content.parts[0].text;
-    const jsonString = textResponse.replace(/```json|```/g, "").trim();
-    const generatedQuiz = JSON.parse(jsonString);
+      const data = await response.json();
+      if (!data.candidates) throw new Error("AI No Response");
 
-    const letterMap = { "A": 0, "B": 1, "C": 2, "D": 3, "E": 4 };
-    generatedQuiz.correctIndex = letterMap[generatedQuiz.correctLetter] ?? 0;
+      const textResponse = data.candidates[0].content.parts[0].text;
+      const jsonString = textResponse.replace(/```json|```/g, "").trim();
+      const generatedQuiz = JSON.parse(jsonString);
 
-    // ✅ บันทึกคำถามใหม่ลงในประวัติ (เพื่อกันซ้ำรอบหน้า)
-    setQuestionHistory(prev => ({
-      ...prev,
-      [topicData.id]: [...(prev[topicData.id] || []), generatedQuiz.question]
-    }));
+      const letterMap = { A: 0, B: 1, C: 2, D: 3, E: 4 };
+      generatedQuiz.correctIndex = letterMap[generatedQuiz.correctLetter] ?? 0;
 
-    setSpecificQuizData(generatedQuiz);
-    setShowAIQuiz(true);
+      // ✅ บันทึกคำถามใหม่ลงในประวัติ (เพื่อกันซ้ำรอบหน้า)
+      setQuestionHistory((prev) => ({
+        ...prev,
+        [topicData.id]: [...(prev[topicData.id] || []), generatedQuiz.question],
+      }));
 
-  } catch (err) {
-    alert("Error: " + err.message);
-  } finally {
-    setIsLoading(false);
-  }
-};
+      setSpecificQuizData(generatedQuiz);
+      setShowAIQuiz(true);
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   // 🧠 ความจำ: เก็บประวัติคำถามของแต่ละหัวข้อ { "TopicID": ["คำถาม1", "คำถาม2"] }
   const [questionHistory, setQuestionHistory] = useState({});
   const [readStatus, setReadStatus] = useState({});
