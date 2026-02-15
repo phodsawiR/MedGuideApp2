@@ -3256,69 +3256,88 @@ export default function MedGuideApp() {
   // --- 🆕 State สำหรับส่งข้อมูลโจทย์เจาะจงไปที่ Modal ---
   const [specificQuizData, setSpecificQuizData] = useState(null);
 
-  // --- 🆕 ฟังก์ชันสร้างโจทย์เจาะจง (ฉบับ Rapid Fire) ---
-  const handleGenerateSpecific = async (topicData) => {
-    // 1. ถาม User (เปลี่ยนค่าเริ่มต้นเป็น Rapid Fire)
-    const userFocus = window.prompt(
-      `หัวข้อ: ${topicData.topic}\n\nต้องการเน้นจุดไหนเป็นพิเศษไหม?`, 
-      "Rapid Fire (ถามตรง-ตอบตรง เน้น Key Concept)" // 👈 แก้ตรงนี้ครับ
-    );
-    if (userFocus === null) return; // กด Cancel
+ // --- 🆕 ฟังก์ชันสร้างโจทย์เจาะจง (แบบไม่ซ้ำ) ---
+ const handleGenerateSpecific = async (topicData) => {
+  // 1. ดึงประวัติคำถามเก่าของหัวข้อนี้
+  const previousQuestions = questionHistory[topicData.id] || [];
+  
+  // 2. ถาม User (Prompt)
+  const defaultFocus = "Rapid Fire (ถามตรง-ตอบตรง เน้น Key Concept)";
+  const userFocus = window.prompt(
+    `หัวข้อ: ${topicData.topic}\n\nต้องการเน้นจุดไหนเป็นพิเศษไหม?`, 
+    defaultFocus
+  );
+  if (userFocus === null) return; 
 
-    setIsLoading(true); 
+  setIsLoading(true); 
+  
+  try {
+    const GEMINI_API_KEY = "AIzaSyBDXte6pXXFzYewKKOwdJoMGR_lFQWxyWQ"; 
     
-    try {
-      const GEMINI_API_KEY = "AIzaSyBDXte6pXXFzYewKKOwdJoMGR_lFQWxyWQ"; 
+    const contextText = `Topic: ${topicData.topic}\nSystem: ${topicData.system}\nContent: ${topicData.summary}`;
+
+    // 🚫 สร้างรายการ "ห้ามถาม" (ส่งไปแค่ 3 ข้อล่าสุดพอครับ เดี๋ยวเปลือง Token)
+    const avoidList = previousQuestions.slice(-3).map((q, i) => `${i+1}. ${q}`).join("\n");
+
+    // 📝 Prompt แบบกันซ้ำ
+    const prompt = `
+      Act as a Senior Medical Professor.
+      Task: Create 1 multiple-choice question in "Rapid Fire" style specifically about "${topicData.topic}".
       
-      const contextText = `Topic: ${topicData.topic}\nSystem: ${topicData.system}\nContent: ${topicData.summary}`;
-
-      // 📝 แก้คำสั่ง Prompt ให้เน้น Rapid Fire
-      const prompt = `
-        Act as a Senior Medical Professor.
-        Task: Create 1 multiple-choice question in "Rapid Fire" style specifically about "${topicData.topic}".
-        
-        Style Guide for Rapid Fire:
-        - Question should be direct and concise (short scenario or direct question).
-        - Focus on high-yield facts, keywords, or immediate management.
-        - NOT a long clinical vignette.
-        
-        Context:
-        ${contextText}
-
-        USER FOCUS: "${userFocus}" (Please focus on this aspect).
-
-        Output JSON only:
-        { "question": "...", "options": ["A","B","C","D","E"], "correctLetter": "A", "explanation": "...", "system": "${topicData.system}" }
-      `;
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-        }
-      );
-
-      const data = await response.json();
-      if (!data.candidates) throw new Error("AI No Response");
+      Style Guide:
+      - Question should be direct and concise.
+      - Focus on high-yield facts.
       
-      const textResponse = data.candidates[0].content.parts[0].text;
-      const jsonString = textResponse.replace(/```json|```/g, "").trim();
-      const generatedQuiz = JSON.parse(jsonString);
+      ⛔ ANTI-REPETITION RULE (IMPORTANT):
+      Do NOT ask about the same concepts as these previous questions:
+      ${avoidList}
+      (Please find a DIFFERENT angle, symptom, or treatment to ask about.)
 
-      const letterMap = { "A": 0, "B": 1, "C": 2, "D": 3, "E": 4 };
-      generatedQuiz.correctIndex = letterMap[generatedQuiz.correctLetter] ?? 0;
+      Context:
+      ${contextText}
 
-      setSpecificQuizData(generatedQuiz);
-      setShowAIQuiz(true);
+      USER FOCUS: "${userFocus}"
 
-    } catch (err) {
-      alert("Error: " + err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      Output JSON only:
+      { "question": "...", "options": ["A","B","C","D","E"], "correctLetter": "A", "explanation": "...", "system": "${topicData.system}" }
+    `;
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      }
+    );
+
+    const data = await response.json();
+    if (!data.candidates) throw new Error("AI No Response");
+    
+    const textResponse = data.candidates[0].content.parts[0].text;
+    const jsonString = textResponse.replace(/```json|```/g, "").trim();
+    const generatedQuiz = JSON.parse(jsonString);
+
+    const letterMap = { "A": 0, "B": 1, "C": 2, "D": 3, "E": 4 };
+    generatedQuiz.correctIndex = letterMap[generatedQuiz.correctLetter] ?? 0;
+
+    // ✅ บันทึกคำถามใหม่ลงในประวัติ (เพื่อกันซ้ำรอบหน้า)
+    setQuestionHistory(prev => ({
+      ...prev,
+      [topicData.id]: [...(prev[topicData.id] || []), generatedQuiz.question]
+    }));
+
+    setSpecificQuizData(generatedQuiz);
+    setShowAIQuiz(true);
+
+  } catch (err) {
+    alert("Error: " + err.message);
+  } finally {
+    setIsLoading(false);
+  }
+};
+  // 🧠 ความจำ: เก็บประวัติคำถามของแต่ละหัวข้อ { "TopicID": ["คำถาม1", "คำถาม2"] }
+  const [questionHistory, setQuestionHistory] = useState({});
   const [readStatus, setReadStatus] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
