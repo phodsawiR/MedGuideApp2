@@ -1850,7 +1850,7 @@ const MASTER_SEED_DATA = [
 
 // --- Firebase Setup ---
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  apiKey: "AIzaSyA1PauDwTDzJ4UfeWjlIBU9IZqL6r67WvI",
   authDomain: "medguide-34566.firebaseapp.com",
   projectId: "medguide-34566",
   storageBucket: "medguide-34566.firebasestorage.app",
