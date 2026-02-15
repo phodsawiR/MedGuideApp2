@@ -3256,31 +3256,36 @@ export default function MedGuideApp() {
   // --- 🆕 State สำหรับส่งข้อมูลโจทย์เจาะจงไปที่ Modal ---
   const [specificQuizData, setSpecificQuizData] = useState(null);
 
-  // --- 🆕 ฟังก์ชันสร้างโจทย์เจาะจง (วางไว้ใน MedGuideApp) ---
+  // --- 🆕 ฟังก์ชันสร้างโจทย์เจาะจง (ฉบับ Rapid Fire) ---
   const handleGenerateSpecific = async (topicData) => {
-    // 1. ถาม User ว่าจะเน้นอะไร
+    // 1. ถาม User (เปลี่ยนค่าเริ่มต้นเป็น Rapid Fire)
     const userFocus = window.prompt(
-      `หัวข้อ: ${topicData.topic}\n\nต้องการเน้นจุดไหนเป็นพิเศษไหม?`,
-      "เน้นการวินิจฉัยและการแยกโรค (Diagnosis & DDx)"
+      `หัวข้อ: ${topicData.topic}\n\nต้องการเน้นจุดไหนเป็นพิเศษไหม?`, 
+      "Rapid Fire (ถามตรง-ตอบตรง เน้น Key Concept)" // 👈 แก้ตรงนี้ครับ
     );
     if (userFocus === null) return; // กด Cancel
 
-    setIsLoading(true); // หมุนติ้วๆ ที่หน้าหลักชั่วคราว
-
+    setIsLoading(true); 
+    
     try {
-      // ⚠️ อย่าลืมเช็ค Key ให้ถูกต้องนะครับ
-      const GEMINI_API_KEY = "AIzaSyBDXte6pXXFzYewKKOwdJoMGR_lFQWxyWQ";
-
+      const GEMINI_API_KEY = "AIzaSyBDXte6pXXFzYewKKOwdJoMGR_lFQWxyWQ"; 
+      
       const contextText = `Topic: ${topicData.topic}\nSystem: ${topicData.system}\nContent: ${topicData.summary}`;
 
+      // 📝 แก้คำสั่ง Prompt ให้เน้น Rapid Fire
       const prompt = `
         Act as a Senior Medical Professor.
-        Task: Create 1 multiple-choice question strictly about "${topicData.topic}".
+        Task: Create 1 multiple-choice question in "Rapid Fire" style specifically about "${topicData.topic}".
+        
+        Style Guide for Rapid Fire:
+        - Question should be direct and concise (short scenario or direct question).
+        - Focus on high-yield facts, keywords, or immediate management.
+        - NOT a long clinical vignette.
         
         Context:
         ${contextText}
 
-        USER FOCUS: "${userFocus}" (Please focus the question on this aspect).
+        USER FOCUS: "${userFocus}" (Please focus on this aspect).
 
         Output JSON only:
         { "question": "...", "options": ["A","B","C","D","E"], "correctLetter": "A", "explanation": "...", "system": "${topicData.system}" }
@@ -3297,17 +3302,17 @@ export default function MedGuideApp() {
 
       const data = await response.json();
       if (!data.candidates) throw new Error("AI No Response");
-
+      
       const textResponse = data.candidates[0].content.parts[0].text;
       const jsonString = textResponse.replace(/```json|```/g, "").trim();
       const generatedQuiz = JSON.parse(jsonString);
 
-      const letterMap = { A: 0, B: 1, C: 2, D: 3, E: 4 };
+      const letterMap = { "A": 0, "B": 1, "C": 2, "D": 3, "E": 4 };
       generatedQuiz.correctIndex = letterMap[generatedQuiz.correctLetter] ?? 0;
 
-      // ✅ ส่งข้อมูลไปที่ Modal และสั่งเปิด
       setSpecificQuizData(generatedQuiz);
       setShowAIQuiz(true);
+
     } catch (err) {
       alert("Error: " + err.message);
     } finally {
