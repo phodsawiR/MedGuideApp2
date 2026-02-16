@@ -3295,7 +3295,8 @@ export default function MedGuideApp() {
       Style Guide:
       - Question should be direct and concise.
       - Focus on high-yield facts.
-      - MUST provide exactly 5 options (A, B, C, D, E) and strictly RANDOMIZE the correct answer position so it is not always A or B.
+      
+      MUST provide exactly 5 options (A, B, C, D, E) and strictly RANDOMIZE the correct answer position so it is not always A or B.
       
       ⛔ ANTI-REPETITION RULE (IMPORTANT):
       Do NOT ask about the same concepts as these previous questions:
@@ -3308,7 +3309,7 @@ export default function MedGuideApp() {
       USER FOCUS: "${userFocus}"
 
       Output JSON only:
-      { "question": "...", "options": ["A","B","C","D","E"], "correctLetter": "A", "explanation": "...", "system": "${topicData.system}" }
+      { "question": "...", "options": ["A","B","C","D","E"], "correctLetter": "<A, B, C, D, or E>", "explanation": "...", "system": "${topicData.system}" }
     `;
 
       const response = await fetch(
