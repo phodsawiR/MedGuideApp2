@@ -3274,6 +3274,8 @@ export default function MedGuideApp() {
     );
     if (userFocus === null) return;
 
+    setSpecificQuizData(null);
+
     setShowAIQuiz(true);
 
     try {
