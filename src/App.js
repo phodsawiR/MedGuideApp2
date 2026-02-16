@@ -3274,7 +3274,7 @@ export default function MedGuideApp() {
     );
     if (userFocus === null) return;
 
-    setIsLoading(true);
+    setShowAIQuiz(true);
 
     try {
       const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
@@ -3341,8 +3341,6 @@ export default function MedGuideApp() {
       setShowAIQuiz(true);
     } catch (err) {
       alert("Error: " + err.message);
-    } finally {
-      setIsLoading(false);
     }
   };
   // 🧠 ความจำ: เก็บประวัติคำถามของแต่ละหัวข้อ { "TopicID": ["คำถาม1", "คำถาม2"] }
@@ -4326,11 +4324,20 @@ export default function MedGuideApp() {
                 )}
               </div>
 
-              {isLoading ? (
-                <div className="text-center py-20 text-gray-400">
-                  กำลังโหลดฐานข้อมูลจาก Cloud...
+              {/* 🟢 อัปเกรดเป็น Overlay โหลด ไม่เด้งกลับ */}
+              {isLoading && (
+                <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in">
+                  <div className="bg-white p-6 rounded-2xl flex flex-col items-center shadow-2xl animate-spin-slow">
+                    <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                    <p className="mt-4 font-bold text-gray-700">
+                      กำลังโหลดฐานข้อมูลจาก Cloud...
+                    </p>
+                  </div>
                 </div>
-              ) : filteredData.length === 0 ? (
+              )}
+
+              {/* 🟢 แสดงเนื้อหาหลักเสมอ ไม่โดนถอดออกแล้ว */}
+              {filteredData.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
                   <div className="bg-gray-100 p-4 rounded-full mb-4">
                     <Search size={32} className="text-gray-400" />
