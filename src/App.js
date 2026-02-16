@@ -1846,7 +1846,7 @@ const MASTER_SEED_DATA = [
   },
 ];
 
-// ... (ต่อจาก MASTER_SEED_DATA ]; )
+// ... (ต่อจาก MASTER_SEED_DATA fe]; )
 
 // --- Firebase Setup ---
 const firebaseConfig = {
@@ -2438,6 +2438,7 @@ const AIQuizModal = ({
         2. ${modeInstruction}
         3. ${systemInstruction}
         4. Explanation in Thai (Focus on Mechanism/Pathophysiology).
+        5. MUST provide exactly 5 options (A, B, C, D, E) and strictly RANDOMIZE the correct answer position so it is not always A or B.
         
         ⚠️ CRITICAL INSTRUCTION (Anti-Hallucination): 
         - DOUBLE CHECK that the "correctLetter" matches the actual correct option text.
@@ -3294,6 +3295,7 @@ export default function MedGuideApp() {
       Style Guide:
       - Question should be direct and concise.
       - Focus on high-yield facts.
+      - MUST provide exactly 5 options (A, B, C, D, E) and strictly RANDOMIZE the correct answer position so it is not always A or B.
       
       ⛔ ANTI-REPETITION RULE (IMPORTANT):
       Do NOT ask about the same concepts as these previous questions:
