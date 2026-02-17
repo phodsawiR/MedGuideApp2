@@ -2391,7 +2391,7 @@ const AIQuizModal = ({
       });
 
       scoredDocs.sort((a, b) => b.score - a.score);
-      contextDocs = scoredDocs.slice(0, 40).map((item) => item.doc);
+      contextDocs = scoredDocs.slice(0, 20).map((item) => item.doc);
       if (contextDocs.length === 0) contextDocs = allDocs.slice(0, 20);
     }
 
