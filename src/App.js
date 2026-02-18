@@ -2368,7 +2368,7 @@ const AIQuizModal = ({
       }
       // Shuffle และหยิบมา 10 เรื่อง
       const shuffled = systemDocs.sort(() => 0.5 - Math.random());
-      contextDocs = shuffled.slice(0, 10);
+      contextDocs = shuffled.slice(0, 3);
     }
     // 🔍 CASE 2: Search Mode (พิมพ์ Keyword) -> ค้นหาเนื้อหา
     else {
@@ -2391,8 +2391,8 @@ const AIQuizModal = ({
       });
 
       scoredDocs.sort((a, b) => b.score - a.score);
-      contextDocs = scoredDocs.slice(0, 20).map((item) => item.doc);
-      if (contextDocs.length === 0) contextDocs = allDocs.slice(0, 20);
+      contextDocs = scoredDocs.slice(0, 5).map((item) => item.doc);
+      if (contextDocs.length === 0) contextDocs = allDocs.slice(0, 5);
     }
 
     const contextText = contextDocs
