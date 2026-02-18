@@ -2484,11 +2484,12 @@ const AIQuizModal = ({
         ],
       };
 
-    // 🟢 4. เลือกรุ่น AI: โหมดยากใช้ 2.5-pro (เน้นฉลาด) / โหมด Case & Rapid ใช้ 2.5-flash (เน้นเร็ว)
-    const targetModel = mode === "expert" ? "gemini-2.5-pro" : "gemini-2.5-flash";
+      // 🟢 4. เลือกรุ่น AI: โหมดยากใช้ 2.5-pro (เน้นฉลาด) / โหมด Case & Rapid ใช้ 2.5-flash (เน้นเร็ว)
+      const targetModel =
+        mode === "expert" ? "gemini-2.5-pro" : "gemini-2.5-flash";
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${GEMINI_API_KEY}`,
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2519,8 +2520,9 @@ const AIQuizModal = ({
       }
 
       const textResponse = data.candidates[0].content.parts[0].text;
-      const jsonString = textResponse.replace(/```json|```/g, "").trim();
-
+      const match = textResponse.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error("AI ไม่ได้ส่ง JSON กลับมา");
+      const jsonString = match[0];
       const generatedQuiz = JSON.parse(jsonString);
 
       // 🟢 SELF-CORRECTION: แปลง Letter (A,B,C) -> Index (0,1,2) ให้ App เข้าใจ
@@ -2619,7 +2621,9 @@ const AIQuizModal = ({
 
       // แปลงข้อมูล
       const textResponse = data.candidates[0].content.parts[0].text;
-      const jsonString = textResponse.replace(/```json|```/g, "").trim();
+      const match = textResponse.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error("AI ไม่ได้ส่ง JSON กลับมา");
+      const jsonString = match[0];
       const generatedQuiz = JSON.parse(jsonString);
 
       // Map ตัวเลือก A->0
@@ -3389,7 +3393,9 @@ export default function MedGuideApp() {
       if (!data.candidates) throw new Error("AI No Response");
 
       const textResponse = data.candidates[0].content.parts[0].text;
-      const jsonString = textResponse.replace(/```json|```/g, "").trim();
+      const match = textResponse.match(/\{[\s\S]*\}/);
+      if (!match) throw new Error("AI ไม่ได้ส่ง JSON กลับมา");
+      const jsonString = match[0];
       const generatedQuiz = JSON.parse(jsonString);
 
       const letterMap = { A: 0, B: 1, C: 2, D: 3, E: 4 };
