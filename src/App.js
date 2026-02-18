@@ -2454,18 +2454,52 @@ const AIQuizModal = ({
         }
       `;
 
+      const requestBody = {
+        contents: [{ parts: [{ text: prompt }] }],
+        safetySettings: [
+          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+          {
+            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            threshold: "BLOCK_NONE",
+          },
+          {
+            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+            threshold: "BLOCK_NONE",
+          },
+        ],
+      };
+
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+          body: JSON.stringify(requestBody),
         }
       );
 
       const data = await response.json();
-      if (!data.candidates || data.candidates.length === 0)
-        throw new Error("AI No Response");
+
+      if (data.error) throw new Error(data.error.message);
+
+      // 🟢 2. ดักจับและแสดงเหตุผลถ้าโดน AI บล็อก (จะได้รู้ตัว)
+      if (data.promptFeedback && data.promptFeedback.blockReason) {
+        throw new Error(
+          "AI ปฏิเสธการตอบคำถามเนื่องจากติดเซ็นเซอร์: " +
+            data.promptFeedback.blockReason
+        );
+      }
+      if (data.candidates && data.candidates[0]?.finishReason === "SAFETY") {
+        throw new Error(
+          "AI สร้างโจทย์ไม่สำเร็จเนื่องจากคำศัพท์แพทย์ถูกมองว่าเป็นเนื้อหาไม่เหมาะสม (Safety)"
+        );
+      }
+      if (!data.candidates || data.candidates.length === 0) {
+        throw new Error(
+          "AI ไม่ตอบสนอง (Model อาจมีปัญหา หรือไม่รองรับชื่อรุ่นนี้)"
+        );
+      }
 
       const textResponse = data.candidates[0].content.parts[0].text;
       const jsonString = textResponse.replace(/```json|```/g, "").trim();
@@ -2551,7 +2585,7 @@ const AIQuizModal = ({
 
       // 3. ยิง API (ใช้รุ่น 2.0 Flash หรือ 3 Flash ตามที่มี)
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -3315,7 +3349,7 @@ export default function MedGuideApp() {
     `;
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-flash-preview:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
