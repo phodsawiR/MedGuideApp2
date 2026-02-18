@@ -2412,17 +2412,31 @@ const AIQuizModal = ({
           : `FORCE CLASSIFY this question as "${targetSystem}".`;
 
       // 3. จัดการ Mode (Case หรือ Rapid) 🟢 แยกโหมดชัดเจนเหมือนเดิม
-      const modeInstruction =
-        mode === "case"
-          ? "Create a Clinical Vignette Question (Detailed Patient presentation: Age, Sex, CC, HPI, PE, Labs -> Question). Mimic NL1/USMLE Step 2 style."
-          : "Create a Rapid Fire / Fact-Check Question (Short, direct question focusing on high-yield facts, triads, or specific treatments).";
+      // 🟢 3. จัดการ Mode (เพิ่มโหมด Expert วิเคราะห์หลายชั้น)
+      let modeInstruction = "";
+      if (mode === "expert") {
+        modeInstruction =
+          "Create an EXPERT-LEVEL, Multi-step Clinical Vignette Question. Require deep analytical thinking, combining 2-3 medical concepts (e.g., diagnosis + pathophysiology + management). Mimic USMLE Step 3 / Board Exam difficulty. VERY CHALLENGING.";
+      } else if (mode === "case") {
+        modeInstruction =
+          "Create a Clinical Vignette Question (Detailed Patient presentation: Age, Sex, CC, HPI, PE, Labs -> Question). Mimic NL1/USMLE Step 2 style.";
+      } else {
+        modeInstruction =
+          "Create a Rapid Fire / Fact-Check Question (Short, direct question focusing on high-yield facts, triads, or specific treatments).";
+      }
 
       const prompt = `
         Act as a Senior Thai Medical Professor.
         
         ${userRequest}
         TARGET SYSTEM: ${targetSystem} (${systemInstruction})
-        MODE: ${mode === "case" ? "Clinical Case" : "Rapid Fire"}
+        MODE: ${
+          mode === "expert"
+            ? "Expert Multi-Step"
+            : mode === "case"
+            ? "Clinical Case"
+            : "Rapid Fire"
+        }
         
         DATABASE (Source of Truth):
         ${contextText}
@@ -2470,8 +2484,11 @@ const AIQuizModal = ({
         ],
       };
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`,
+    // 🟢 4. เลือกรุ่น AI: โหมดยากใช้ 2.5-pro (เน้นฉลาด) / โหมด Case & Rapid ใช้ 2.5-flash (เน้นเร็ว)
+    const targetModel = mode === "expert" ? "gemini-2.5-pro" : "gemini-2.5-flash";
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2585,7 +2602,7 @@ const AIQuizModal = ({
 
       // 3. ยิง API (ใช้รุ่น 2.0 Flash หรือ 3 Flash ตามที่มี)
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/modelsgemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/modelsgemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2663,7 +2680,7 @@ const AIQuizModal = ({
               <div className="flex bg-gray-100 p-1 rounded-lg">
                 <button
                   onClick={() => setMode("case")}
-                  className={`flex-1 py-2 rounded-md text-sm font-bold ${
+                  className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${
                     mode === "case"
                       ? "bg-white shadow text-indigo-600"
                       : "text-gray-500"
@@ -2673,13 +2690,24 @@ const AIQuizModal = ({
                 </button>
                 <button
                   onClick={() => setMode("rapid")}
-                  className={`flex-1 py-2 rounded-md text-sm font-bold ${
+                  className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${
                     mode === "rapid"
                       ? "bg-white shadow text-pink-600"
                       : "text-gray-500"
                   }`}
                 >
                   Rapid Fire
+                </button>
+                {/* 🟢 ปุ่มใหม่: โหมดยากพิเศษ */}
+                <button
+                  onClick={() => setMode("expert")}
+                  className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${
+                    mode === "expert"
+                      ? "bg-white shadow text-red-600 scale-105 border border-red-100"
+                      : "text-gray-500"
+                  }`}
+                >
+                  Super Hard 🔥
                 </button>
               </div>
 
@@ -3349,7 +3377,7 @@ export default function MedGuideApp() {
     `;
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
