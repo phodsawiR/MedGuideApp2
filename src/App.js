@@ -43,6 +43,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import { initializeApp } from "firebase/app";
+import { getAnalytics, logEvent } from "firebase/analytics";
 import {
   getAuth,
   signInWithCustomToken,
@@ -1861,6 +1862,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+export const analytics =
+  typeof window !== "undefined" ? getAnalytics(app) : null;
 const appId = typeof __app_id !== "undefined" ? __app_id : "medguide-master-db";
 
 // --- 1. SystemIcon (Global Component) ---
