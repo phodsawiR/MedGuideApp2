@@ -2933,6 +2933,21 @@ const QuizBank = ({ quizzes, db }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterSystem, setFilterSystem] = useState("All Systems");
 
+  // 🟢 State สำหรับโหมดสุ่มโจทย์
+  const [randomQuiz, setRandomQuiz] = useState(null);
+  const [randomAnswer, setRandomAnswer] = useState(null);
+
+  // ฟังก์ชันสุ่มโจทย์จาก Pool ที่ถูก Filter แล้ว
+  const handleRandomize = () => {
+    if (filteredQuizzes.length === 0) {
+      alert("ไม่มีโจทย์ในหมวดนี้ให้สุ่มครับ ลองเปลี่ยน Filter ดูนะ");
+      return;
+    }
+    const randomIndex = Math.floor(Math.random() * filteredQuizzes.length);
+    setRandomQuiz(filteredQuizzes[randomIndex]);
+    setRandomAnswer(null); // รีเซ็ตคำตอบทุกครั้งที่สุ่มใหม่
+  };
+
   // ดึงรายชื่อ System ทั้งหมดที่มีในคลังออกมา (ป้องกันปุ่มซ้ำ)
   const availableSystems = useMemo(() => {
     const systems = new Set(quizzes.map((q) => q.system || "General"));
@@ -3020,7 +3035,13 @@ const QuizBank = ({ quizzes, db }) => {
             </button>
           )}
         </div>
-
+{/* 🟢 ปุ่มสุ่มโจทย์ */}
+        <button
+          onClick={handleRandomize}
+          className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-2.5 rounded-xl font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+        >
+          🎲 สุ่มทำโจทย์ 1 ข้อ (จาก {filteredQuizzes.length} ข้อ)
+        </button>
         {/* Filter Tags (Pills) */}
         <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
           {availableSystems.map((sys) => (
@@ -3303,6 +3324,109 @@ const QuizBank = ({ quizzes, db }) => {
             </div>
           );
         })
+      )}
+      {/* 🟢 หน้าต่าง Pop-up สุ่มโจทย์ (Flashcard Mode) */}
+      {randomQuiz && (
+        <div 
+          className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in"
+          onClick={() => setRandomQuiz(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-4 flex justify-between items-center text-white">
+              <h3 className="font-bold flex items-center gap-2">
+                <Brain size={18} /> Practice Mode
+              </h3>
+              <button onClick={() => setRandomQuiz(null)} className="hover:bg-white/20 p-1 rounded-full transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[75vh] custom-scrollbar">
+              <div className="flex gap-2 mb-3">
+                <span className="bg-blue-100 text-blue-700 text-[10px] px-2 py-1 rounded uppercase font-bold">
+                  {randomQuiz.system || "General"}
+                </span>
+                <span className="bg-pink-100 text-pink-700 text-[10px] px-2 py-1 rounded uppercase font-bold">
+                  {randomQuiz.mode || "Quiz"}
+                </span>
+              </div>
+              
+              <h3 className="font-bold text-gray-800 text-lg leading-relaxed mb-6">
+                {renderMath(randomQuiz.question)}
+              </h3>
+
+              <div className="space-y-2">
+                {randomQuiz.options?.map((opt, idx) => {
+                  const isAnswered = randomAnswer !== null;
+                  const isCorrect = idx === randomQuiz.correctIndex;
+                  const isSelected = idx === randomAnswer;
+                  
+                  let btnClass = "border-gray-200 bg-white hover:bg-gray-50 text-gray-700";
+                  if (isAnswered) {
+                    if (isCorrect) btnClass = "bg-green-100 border-green-400 text-green-900 font-bold shadow-sm";
+                    else if (isSelected && !isCorrect) btnClass = "bg-red-50 border-red-300 text-red-800";
+                    else btnClass = "opacity-40 border-gray-100";
+                  }
+
+                  return (
+                    <button
+                      key={idx}
+                      disabled={isAnswered}
+                      onClick={() => setRandomAnswer(idx)}
+                      className={`w-full text-left p-3 rounded-xl border-2 transition-all flex items-center gap-3 ${btnClass}`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-sm ${
+                        isAnswered && isCorrect ? "bg-green-500 text-white" :
+                        isAnswered && isSelected ? "bg-red-500 text-white" :
+                        "bg-gray-100 text-gray-500 border border-gray-300"
+                      }`}>
+                        {String.fromCharCode(65 + idx)}
+                      </div>
+                      <span className="text-sm">{renderMath(opt)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Explanation */}
+              {randomAnswer !== null && (
+                <div className="mt-6 p-4 bg-blue-50 text-blue-900 text-sm rounded-xl border border-blue-100 animate-in slide-in-from-top-2">
+                  <div className="font-bold mb-2 flex items-center gap-2">
+                    {randomAnswer === randomQuiz.correctIndex ? 
+                      <span className="text-green-600 flex items-center gap-1"><CheckCircle size={16}/> เก่งมาก! ตอบถูก</span> : 
+                      <span className="text-red-500 flex items-center gap-1"><X size={16}/> เสียใจด้วย ตอบผิด</span>
+                    }
+                  </div>
+                  <strong className="text-blue-800 text-xs uppercase tracking-wider block mb-1">💡 คำอธิบาย:</strong>
+                  {renderMath(randomQuiz.explanation)}
+                </div>
+              )}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-4 border-t border-gray-100 bg-gray-50 flex gap-2">
+               <button 
+                onClick={() => setRandomQuiz(null)}
+                className="flex-1 py-2.5 text-gray-500 hover:bg-gray-200 bg-gray-100 rounded-xl font-bold transition-colors"
+              >
+                ปิด
+              </button>
+              {randomAnswer !== null && (
+                <button 
+                  onClick={handleRandomize}
+                  className="flex-1 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl font-bold shadow-md transition-all flex justify-center items-center gap-2"
+                >
+                  🎲 ข้อต่อไป <ChevronUp className="rotate-90" size={18}/>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
