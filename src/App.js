@@ -121,7 +121,7 @@ const renderMath = (text) => {
     5: "₅",
     6: "₆",
     7: "₇",
-    8: "⁸",
+    8: "₈",
     9: "₉",
     "+": "₊",
     "-": "₋",
@@ -214,6 +214,12 @@ const getImageUrl = (url) => {
   }
   return url;
 };
+// อนุญาตเฉพาะ http(s) และ data:image กันลิงก์ javascript:... ใน href/src
+const sanitizeImageUrl = (u) => {
+  if (!u || typeof u !== "string") return null;
+  return /^(https?:|data:image\/)/i.test(u.trim()) ? u : null;
+};
+
 // --- ส่วนเสริม: กล่องคอมเมนต์ (ฉบับปรับปรุง V2: แยกช่องลิงก์รูป) ---
 const CommentSection = ({ db, appId, system, topic }) => {
   const [comments, setComments] = React.useState([]);
@@ -251,7 +257,8 @@ const CommentSection = ({ db, appId, system, topic }) => {
       img.onload = () => {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
-        const scale = 800 / Math.max(img.width, img.height);
+        const longest = Math.max(img.width, img.height);
+        const scale = longest > 800 ? 800 / longest : 1;
         canvas.width = img.width * scale;
         canvas.height = img.height * scale;
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -330,10 +337,13 @@ const CommentSection = ({ db, appId, system, topic }) => {
               c.text.match(/\.(jpeg|jpg|gif|png)$/) != null);
 
           // รูปที่จะแสดง (แปลง Drive Link อัตโนมัติด้วย getImageUrl)
-          const displayImage = c.image || (isLegacyImage ? c.text : null);
-          const finalImageUrl = getImageUrl
-            ? getImageUrl(displayImage)
-            : displayImage;
+          const rawImage = c.image || (isLegacyImage ? c.text : null);
+          const displayImage = sanitizeImageUrl(rawImage);
+          const finalImageUrl = displayImage
+            ? getImageUrl
+              ? getImageUrl(displayImage)
+              : displayImage
+            : null;
 
           return (
             <div
@@ -3554,7 +3564,6 @@ export default function MedGuideApp() {
       }));
 
       setSpecificQuizData(generatedQuiz);
-      setShowAIQuiz(true);
     } catch (err) {
       alert("Error: " + err.message);
     }
@@ -3641,8 +3650,9 @@ export default function MedGuideApp() {
         img.onload = () => {
           const canvas = document.createElement("canvas");
           const MAX_WIDTH = 800;
-          const scaleSize = MAX_WIDTH / img.width;
-          canvas.width = MAX_WIDTH;
+          const targetWidth = Math.min(MAX_WIDTH, img.width);
+          const scaleSize = targetWidth / img.width;
+          canvas.width = targetWidth;
           canvas.height = img.height * scaleSize;
           const ctx = canvas.getContext("2d");
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
