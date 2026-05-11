@@ -287,7 +287,7 @@ Plan:
                     <div className="bg-amber-100 px-3 py-2 font-bold text-amber-900 text-sm">Urinary Tract Infection (UTI)</div>
                     <div className="p-3 text-sm space-y-2">
                       <div><strong>Uncomplicated Cystitis:</strong> Fosfomycin 3g oral x1 <u>OR</u> Nitrofurantoin 100mg 1x2 x 5 days</div>
-                      <div><strong>Acute Pyelonephritis (OPD):</strong> Ciprofloxacin 500mg 1x2 x 7 days <u>OR</u> Ceftriaxone 1g IV stat -> oral beta-lactam</div>
+                      <div><strong>Acute Pyelonephritis (OPD):</strong> Ciprofloxacin 500mg 1x2 x 7 days <u>OR</u> Ceftriaxone 1g IV stat -&gt; oral beta-lactam</div>
                       <div><strong>Severe / Inpatient:</strong> Ceftriaxone 1-2g IV OD</div>
                     </div>
                   </div>
