@@ -966,7 +966,7 @@ export default function MedGuideApp() {
             )}
           </div>
         </header>
-        {showAdmin && (
+        {showAdmin && activeTab === 'knowledge' && (
           <div className="bg-blue-50 border-b border-blue-200 p-4 md:px-8">
             <div className="max-w-3xl mx-auto bg-white p-6 rounded-xl shadow-sm border border-blue-100">
               <div className="mb-8 p-4 bg-slate-50 border border-dashed border-slate-300 rounded-xl">
@@ -1282,7 +1282,7 @@ export default function MedGuideApp() {
 
           {activeTab === "pocket_guide" && (
             <div className="animate-in fade-in slide-in-from-bottom-4">
-              <PocketGuideView />
+              <PocketGuideView db={db} appId={appId} showAdmin={showAdmin} />
             </div>
           )}
 
