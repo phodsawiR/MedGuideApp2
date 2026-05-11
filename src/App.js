@@ -1261,6 +1261,15 @@ export default function MedGuideApp() {
                     ถ้าสั่งให้มันทำอะไร มันจะตอบมาเป็น code ก๊อบวางใน import เลย
                     <br />
                     <br />
+                    ✨ <strong>New Formatting:</strong> ตอนนี้ช่อง Summary รองรับการจัดรูปแบบสำหรับเขียน SOAP Note หรือ Clinical Data แล้ว!
+                    <ul className="list-disc ml-5 mt-1 text-xs text-blue-50">
+                      <li>พิมพ์ <code># </code>, <code>## </code>, <code>### </code> นำหน้าบรรทัดเพื่อทำหัวข้อ (Headings)</li>
+                      <li>พิมพ์ <code>- </code> หรือ <code>1. </code> นำหน้าเพื่อทำลิสต์ข้อๆ (Bullet / Numbered Lists)</li>
+                      <li>พิมพ์ <code>&gt; </code> นำหน้าเพื่อเน้นข้อความ (Blockquote) คล้ายกล่องข้อควรระวัง</li>
+                      <li>พิมพ์ <code>---</code> เพื่อสร้างเส้นคั่น (Divider)</li>
+                    </ul>
+                    <br />
+                    <br />
                     📌 <strong>Update:</strong> ตอนนี้เพิ่มฟีเจอร์ Discussion
                     และตารางเปรียบเทียบแล้วนะครับ ใครมีข้อสงสัยตรงไหน
                     พิมพ์ถามทิ้งไว้ได้เลย! ขอให้ทุกคนโชคดีกับการสอบครับ ✌️{" "}

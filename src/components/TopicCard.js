@@ -259,13 +259,66 @@ const TopicCard = ({
           }
           // กรณีเป็นข้อความปกติ
           else {
+            const renderedLines = [];
+            let currentList = null;
+
+            const pushListIfAny = () => {
+              if (currentList) {
+                const ListTag = currentList.type;
+                renderedLines.push(
+                  <ListTag className={`my-2 pl-6 space-y-1 ${currentList.type === 'ul' ? 'list-disc marker:text-blue-400' : 'list-decimal marker:text-indigo-500 font-semibold'}`}>
+                    {currentList.items.map((li, i) => (
+                      <li key={i} className="text-gray-700 font-normal">{renderInlineContent(li)}</li>
+                    ))}
+                  </ListTag>
+                );
+                currentList = null;
+              }
+            };
+
+            block.content.forEach((line, lIdx) => {
+              const trimmed = line.trim();
+              
+              if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                if (!currentList || currentList.type !== 'ul') {
+                  pushListIfAny();
+                  currentList = { type: 'ul', items: [] };
+                }
+                currentList.items.push(trimmed.substring(2));
+              } else if (trimmed.match(/^\d+\.\s/)) {
+                if (!currentList || currentList.type !== 'ol') {
+                  pushListIfAny();
+                  currentList = { type: 'ol', items: [] };
+                }
+                const matchText = trimmed.match(/^\d+\.\s/)[0];
+                currentList.items.push(trimmed.substring(matchText.length));
+              } else {
+                pushListIfAny();
+
+                if (trimmed.startsWith('### ')) {
+                  renderedLines.push(<h3 className="text-sm font-bold text-blue-800 border-b border-blue-100 pb-1 mt-4 mb-2 flex items-center gap-1"><span className="text-blue-500">❖</span> {renderInlineContent(trimmed.substring(4))}</h3>);
+                } else if (trimmed.startsWith('## ')) {
+                  renderedLines.push(<h2 className="text-base font-extrabold text-indigo-800 mt-5 mb-2 flex items-center gap-2"><span className="bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded text-xs uppercase tracking-wider">Section</span> {renderInlineContent(trimmed.substring(3))}</h2>);
+                } else if (trimmed.startsWith('# ')) {
+                  renderedLines.push(<h1 className="text-lg font-black text-gray-900 mt-6 mb-3 bg-gray-100 px-3 py-1.5 rounded-lg border-l-4 border-blue-500">{renderInlineContent(trimmed.substring(2))}</h1>);
+                } else if (trimmed.startsWith('> ')) {
+                  renderedLines.push(<blockquote className="border-l-4 border-amber-500 bg-amber-50 p-3 text-amber-900 rounded-r-lg my-3 text-sm font-medium shadow-sm">{renderInlineContent(trimmed.substring(2))}</blockquote>);
+                } else if (trimmed === '---') {
+                  renderedLines.push(<hr className="my-4 border-t border-gray-200 border-dashed" />);
+                } else {
+                  if (trimmed === '') {
+                     renderedLines.push(<div className="h-2"></div>);
+                  } else {
+                     renderedLines.push(<div className="min-h-[1.2em]">{renderInlineContent(line)}</div>);
+                  }
+                }
+              }
+            });
+            pushListIfAny();
+
             return (
               <div key={idx} className="space-y-1">
-                {block.content.map((line, lIdx) => (
-                  <div key={lIdx} className="min-h-[1.2em]">
-                    {renderInlineContent(line)}
-                  </div>
-                ))}
+                {renderedLines.map((item, i) => React.cloneElement(item, { key: i }))}
               </div>
             );
           }
