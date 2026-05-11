@@ -41,6 +41,8 @@ import {
   Pencil,
   Image as ImageIcon,
   Maximize2,
+  Calculator,
+  HeartPulse,
 } from "lucide-react";
 import { initializeApp } from "firebase/app";
 import { getAnalytics, logEvent } from "firebase/analytics";
@@ -69,6 +71,8 @@ import { MASTER_SEED_DATA } from './data/seedData';
 import { TopicCard } from './components/TopicCard';
 import { AIQuizModal } from './components/AIQuizModal';
 import { QuizBank } from './components/QuizBank';
+import { ClinicalCalculatorModal } from './components/ClinicalCalculatorModal';
+import { PocketGuideModal } from './components/PocketGuideModal';
 
 // --- Firebase Setup ---
 const firebaseConfig = {
@@ -103,6 +107,8 @@ export default function MedGuideApp() {
   const [user, setUser] = useState(null);
   const [zoomContent, setZoomContent] = useState(null);
   const [showAIQuiz, setShowAIQuiz] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [showPocketGuide, setShowPocketGuide] = useState(false);
   const [knowledgeBase, setKnowledgeBase] = useState([]);
   const [specificQuizData, setSpecificQuizData] = useState(null);
 
@@ -806,6 +812,21 @@ export default function MedGuideApp() {
               >
                 <span className="text-base">📖</span> คู่มือการใช้งาน
               </button>
+              
+              <button
+                onClick={() => { setShowPocketGuide(true); setIsSidebarOpen(false); }}
+                className="flex items-center justify-center gap-2 py-2 text-sm text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg font-bold transition-all shadow-sm"
+              >
+                <HeartPulse size={16} /> Ward Pocket Guide
+              </button>
+              
+              <button
+                onClick={() => { setShowCalculator(true); setIsSidebarOpen(false); }}
+                className="flex items-center justify-center gap-2 py-2 text-sm text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg font-bold transition-all shadow-sm"
+              >
+                <Calculator size={16} /> Clinical Calculator
+              </button>
+
               <button
                 onClick={() => setShowAdmin(!showAdmin)}
                 className={`flex items-center justify-center gap-2 py-2 text-sm border rounded-lg font-bold transition-all shadow-sm ${
@@ -1324,6 +1345,14 @@ export default function MedGuideApp() {
         savedQuizzes={quizzes}
         systems={systems}
         externalQuizData={specificQuizData}
+      />
+      <ClinicalCalculatorModal
+        isOpen={showCalculator}
+        onClose={() => setShowCalculator(false)}
+      />
+      <PocketGuideModal
+        isOpen={showPocketGuide}
+        onClose={() => setShowPocketGuide(false)}
       />
     </div>
   );
