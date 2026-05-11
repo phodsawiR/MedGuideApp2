@@ -71,8 +71,8 @@ import { MASTER_SEED_DATA } from './data/seedData';
 import { TopicCard } from './components/TopicCard';
 import { AIQuizModal } from './components/AIQuizModal';
 import { QuizBank } from './components/QuizBank';
-import { ClinicalCalculatorModal } from './components/ClinicalCalculatorModal';
-import { PocketGuideModal } from './components/PocketGuideModal';
+import { ClinicalCalculatorView } from './components/ClinicalCalculatorView';
+import { PocketGuideView } from './components/PocketGuideView';
 
 // --- Firebase Setup ---
 const firebaseConfig = {
@@ -107,8 +107,6 @@ export default function MedGuideApp() {
   const [user, setUser] = useState(null);
   const [zoomContent, setZoomContent] = useState(null);
   const [showAIQuiz, setShowAIQuiz] = useState(false);
-  const [showCalculator, setShowCalculator] = useState(false);
-  const [showPocketGuide, setShowPocketGuide] = useState(false);
   const [knowledgeBase, setKnowledgeBase] = useState([]);
   const [specificQuizData, setSpecificQuizData] = useState(null);
 
@@ -794,14 +792,14 @@ export default function MedGuideApp() {
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Clinical Tools</label>
                 <div className="flex flex-col gap-2">
                   <button
-                    onClick={() => { setShowPocketGuide(true); setIsSidebarOpen(false); }}
+                    onClick={() => { setActiveTab('pocket_guide'); setIsSidebarOpen(false); window.scrollTo(0, 0); }}
                     className="flex items-center justify-center gap-2 py-2.5 text-sm text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg font-bold transition-all shadow-sm"
                   >
                     <HeartPulse size={16} /> Ward Pocket Guide
                   </button>
                   
                   <button
-                    onClick={() => { setShowCalculator(true); setIsSidebarOpen(false); }}
+                    onClick={() => { setActiveTab('calculator'); setIsSidebarOpen(false); window.scrollTo(0, 0); }}
                     className="flex items-center justify-center gap-2 py-2.5 text-sm text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg font-bold transition-all shadow-sm"
                   >
                     <Calculator size={16} /> Clinical Calculator
@@ -908,7 +906,7 @@ export default function MedGuideApp() {
               </div>
             </div>
 
-            <div className="flex justify-center gap-4 mt-2 mb-1">
+            <div className="flex flex-wrap justify-center gap-3 mt-2 mb-1">
               <button
                 onClick={() => setActiveTab("knowledge")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${
@@ -929,20 +927,43 @@ export default function MedGuideApp() {
               >
                 <Brain size={16} /> คลังข้อสอบ ({quizzes.length})
               </button>
+              <button
+                onClick={() => setActiveTab("pocket_guide")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${
+                  activeTab === "pocket_guide"
+                    ? "bg-rose-100 text-rose-700 dark:bg-rose-600 dark:text-white shadow-md scale-105"
+                    : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                }`}
+              >
+                <HeartPulse size={16} /> Ward Guide
+              </button>
+              <button
+                onClick={() => setActiveTab("calculator")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${
+                  activeTab === "calculator"
+                    ? "bg-teal-100 text-teal-700 dark:bg-teal-600 dark:text-white shadow-md scale-105"
+                    : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                }`}
+              >
+                <Calculator size={16} /> Calculator
+              </button>
             </div>
-            <div className="relative w-full md:w-96">
-              <input
-                type="text"
-                placeholder="🔍 ค้นหา (เช่น MI, Meckel, EKG)..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all text-sm shadow-sm"
-              />
-              <Search
-                className="absolute left-3 top-3 text-gray-400"
-                size={18}
-              />
-            </div>
+            
+            {(activeTab === 'knowledge' || activeTab === 'quiz') && (
+              <div className="relative w-full md:w-96 mt-3 mx-auto">
+                <input
+                  type="text"
+                  placeholder="🔍 ค้นหาในคลังเนื้อหา..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all text-sm shadow-sm"
+                />
+                <Search
+                  className="absolute left-3 top-3 text-gray-400"
+                  size={18}
+                />
+              </div>
+            )}
           </div>
         </header>
         {showAdmin && (
@@ -1258,6 +1279,18 @@ export default function MedGuideApp() {
               <QuizBank quizzes={quizzes} db={db} />
             </div>
           )}
+
+          {activeTab === "pocket_guide" && (
+            <div className="animate-in fade-in slide-in-from-bottom-4">
+              <PocketGuideView />
+            </div>
+          )}
+
+          {activeTab === "calculator" && (
+            <div className="animate-in fade-in slide-in-from-bottom-4">
+              <ClinicalCalculatorView />
+            </div>
+          )}
         </div>
       </main>
 
@@ -1356,14 +1389,6 @@ export default function MedGuideApp() {
         savedQuizzes={quizzes}
         systems={systems}
         externalQuizData={specificQuizData}
-      />
-      <ClinicalCalculatorModal
-        isOpen={showCalculator}
-        onClose={() => setShowCalculator(false)}
-      />
-      <PocketGuideModal
-        isOpen={showPocketGuide}
-        onClose={() => setShowPocketGuide(false)}
       />
     </div>
   );

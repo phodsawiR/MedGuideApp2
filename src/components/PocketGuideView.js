@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { X, Copy, CheckCircle, FileText, Zap, FlaskConical, ShieldAlert, HeartPulse } from 'lucide-react';
 
-const PocketGuideModal = ({ isOpen, onClose }) => {
+const PocketGuideView = () => {
   const [activeTab, setActiveTab] = useState('notes');
   const [copiedNote, setCopiedNote] = useState(null);
-
-  if (!isOpen) return null;
+  const [searchQuery, setSearchQuery] = useState('');
 
   const notesTemplates = [
     {
@@ -86,26 +85,34 @@ Plan:
     setTimeout(() => setCopiedNote(null), 2000);
   };
 
-  return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-        
-        {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-700 to-blue-800 p-4 flex justify-between items-center text-white">
-          <h3 className="font-bold flex items-center gap-2">
-            <HeartPulse size={22} /> Ward Pocket Guide
-          </h3>
-          <button onClick={onClose} className="hover:bg-white/20 p-1 rounded-full transition-colors">
-            <X size={20} />
-          </button>
-        </div>
+  const filteredNotes = notesTemplates.filter(n => n.title.toLowerCase().includes(searchQuery.toLowerCase()) || n.content.toLowerCase().includes(searchQuery.toLowerCase()));
 
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      
+      {/* Search Bar for Pocket Guide */}
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+        <div className="relative w-full">
+          <input
+            type="text"
+            placeholder="🔍 ค้นหาใน Ward Pocket Guide (เช่น SOAP, Adrenaline, CAP)..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-rose-500 focus:ring-2 focus:ring-rose-100 transition-all text-sm shadow-sm"
+          />
+          <div className="absolute left-3 top-3.5 text-gray-400">
+            <HeartPulse size={18} />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
         {/* Tabs */}
-        <div className="flex bg-gray-100 p-2 overflow-x-auto custom-scrollbar border-b border-gray-200">
+        <div className="flex bg-gray-50 p-2 overflow-x-auto custom-scrollbar border-b border-gray-200">
           <button
             onClick={() => setActiveTab('notes')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
-              activeTab === 'notes' ? 'bg-white shadow-sm text-blue-700' : 'text-gray-500 hover:text-gray-700'
+              activeTab === 'notes' ? 'bg-white shadow-sm text-blue-700 border border-gray-200' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             <FileText size={16} /> Smart Note Templates
@@ -113,7 +120,7 @@ Plan:
           <button
             onClick={() => setActiveTab('drugs')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
-              activeTab === 'drugs' ? 'bg-white shadow-sm text-red-600' : 'text-gray-500 hover:text-gray-700'
+              activeTab === 'drugs' ? 'bg-white shadow-sm text-red-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             <Zap size={16} /> Emergency Drugs
@@ -121,7 +128,7 @@ Plan:
           <button
             onClick={() => setActiveTab('labs')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
-              activeTab === 'labs' ? 'bg-white shadow-sm text-purple-600' : 'text-gray-500 hover:text-gray-700'
+              activeTab === 'labs' ? 'bg-white shadow-sm text-purple-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             <FlaskConical size={16} /> Quick Lab Ref
@@ -129,7 +136,7 @@ Plan:
           <button
             onClick={() => setActiveTab('abx')}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
-              activeTab === 'abx' ? 'bg-white shadow-sm text-amber-600' : 'text-gray-500 hover:text-gray-700'
+              activeTab === 'abx' ? 'bg-white shadow-sm text-amber-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             <ShieldAlert size={16} /> Antibiotic Guide
@@ -137,12 +144,12 @@ Plan:
         </div>
 
         {/* Content */}
-        <div className="p-4 md:p-6 overflow-y-auto custom-scrollbar flex-1 bg-slate-50">
+        <div className="p-4 md:p-6 bg-slate-50 min-h-[500px]">
           
           {/* Note Templates */}
           {activeTab === 'notes' && (
-            <div className="animate-in fade-in space-y-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {notesTemplates.map((template, idx) => (
+            <div className="animate-in fade-in space-y-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredNotes.map((template, idx) => (
                 <div key={idx} className="bg-white border border-gray-200 rounded-xl overflow-hidden flex flex-col shadow-sm">
                   <div className="bg-blue-50 p-3 border-b border-blue-100 flex justify-between items-center">
                     <h4 className="font-bold text-blue-900 text-sm">{template.title}</h4>
@@ -158,6 +165,11 @@ Plan:
                   </div>
                 </div>
               ))}
+              {filteredNotes.length === 0 && (
+                <div className="col-span-full text-center py-10 text-gray-400">
+                  ไม่พบ Template ที่ตรงกับการค้นหา "{searchQuery}"
+                </div>
+              )}
             </div>
           )}
 
@@ -169,7 +181,7 @@ Plan:
                   <Zap size={18} /> ACLS & Emergency Drugs
                 </h4>
                 <div className="space-y-3">
-                  <div className="bg-white p-3 rounded-lg border border-red-100 shadow-sm">
+                  <div className={`bg-white p-3 rounded-lg border border-red-100 shadow-sm ${searchQuery && !'adrenaline epinephrine cardiac arrest'.includes(searchQuery.toLowerCase()) ? 'hidden' : ''}`}>
                     <div className="flex justify-between items-start mb-1">
                       <h5 className="font-bold text-gray-900">Adrenaline (Epinephrine)</h5>
                       <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold uppercase">Cardiac Arrest</span>
@@ -178,7 +190,7 @@ Plan:
                     <p className="text-xs text-gray-500 mt-1">ผสม: 1 amp (1mg/1ml) ฉีดได้เลย แล้วตามด้วย NSS 20 ml flush และยกแขนสูง</p>
                   </div>
 
-                  <div className="bg-white p-3 rounded-lg border border-red-100 shadow-sm">
+                  <div className={`bg-white p-3 rounded-lg border border-red-100 shadow-sm ${searchQuery && !'amiodarone vf pvt'.includes(searchQuery.toLowerCase()) ? 'hidden' : ''}`}>
                     <div className="flex justify-between items-start mb-1">
                       <h5 className="font-bold text-gray-900">Amiodarone</h5>
                       <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold uppercase">VF / pVT</span>
@@ -188,7 +200,7 @@ Plan:
                     <p className="text-xs text-gray-500 mt-1">ผสม: 2 amps (300mg) ผสม 5%DW 20 ml (ห้ามผสม NSS)</p>
                   </div>
 
-                  <div className="bg-white p-3 rounded-lg border border-red-100 shadow-sm">
+                  <div className={`bg-white p-3 rounded-lg border border-red-100 shadow-sm ${searchQuery && !'atropine bradycardia'.includes(searchQuery.toLowerCase()) ? 'hidden' : ''}`}>
                     <div className="flex justify-between items-start mb-1">
                       <h5 className="font-bold text-gray-900">Atropine</h5>
                       <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-bold uppercase">Bradycardia</span>
@@ -197,7 +209,7 @@ Plan:
                     <p className="text-xs text-gray-500 mt-1">ผสม: 1 amp (0.6mg/1ml) ฉีดเลย ระวังให้ช้าเกินไปอาจทำให้ paradoxial bradycardia</p>
                   </div>
 
-                  <div className="bg-white p-3 rounded-lg border border-red-100 shadow-sm">
+                  <div className={`bg-white p-3 rounded-lg border border-red-100 shadow-sm ${searchQuery && !'adenosine svt'.includes(searchQuery.toLowerCase()) ? 'hidden' : ''}`}>
                     <div className="flex justify-between items-start mb-1">
                       <h5 className="font-bold text-gray-900">Adenosine</h5>
                       <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-bold uppercase">SVT</span>
@@ -214,7 +226,7 @@ Plan:
           {activeTab === 'labs' && (
             <div className="animate-in fade-in space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                <div className={`bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm ${searchQuery && !'cbc complete blood count hb hct wbc plt'.includes(searchQuery.toLowerCase()) ? 'hidden' : ''}`}>
                   <div className="bg-purple-100 p-2 font-bold text-purple-900 text-sm text-center">CBC (Complete Blood Count)</div>
                   <table className="w-full text-sm text-left">
                     <tbody>
@@ -226,7 +238,7 @@ Plan:
                   </table>
                 </div>
 
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                <div className={`bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm ${searchQuery && !'electrolytes renal sodium potassium chloride bicarbonate bun creatinine na k cl hco3 cr'.includes(searchQuery.toLowerCase()) ? 'hidden' : ''}`}>
                   <div className="bg-blue-100 p-2 font-bold text-blue-900 text-sm text-center">Electrolytes & Renal</div>
                   <table className="w-full text-sm text-left">
                     <tbody>
@@ -240,7 +252,7 @@ Plan:
                   </table>
                 </div>
 
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm md:col-span-2">
+                <div className={`bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm md:col-span-2 ${searchQuery && !'abg arterial blood gas ph paco2 hco3 pao2'.includes(searchQuery.toLowerCase()) ? 'hidden' : ''}`}>
                   <div className="bg-pink-100 p-2 font-bold text-pink-900 text-sm text-center">ABG (Arterial Blood Gas)</div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 text-center">
                     <div>
@@ -274,7 +286,7 @@ Plan:
                 </h4>
                 
                 <div className="space-y-4">
-                  <div className="bg-white rounded-lg border border-amber-100 shadow-sm overflow-hidden">
+                  <div className={`bg-white rounded-lg border border-amber-100 shadow-sm overflow-hidden ${searchQuery && !'cap community acquired pneumonia amoxicillin doxycycline ceftriaxone azithromycin'.includes(searchQuery.toLowerCase()) ? 'hidden' : ''}`}>
                     <div className="bg-amber-100 px-3 py-2 font-bold text-amber-900 text-sm">Community-Acquired Pneumonia (CAP)</div>
                     <div className="p-3 text-sm space-y-2">
                       <div><strong>Mild (Outpatient):</strong> Amoxicillin (1g) 1x3 <u>OR</u> Doxycycline (100mg) 1x2</div>
@@ -283,7 +295,7 @@ Plan:
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-lg border border-amber-100 shadow-sm overflow-hidden">
+                  <div className={`bg-white rounded-lg border border-amber-100 shadow-sm overflow-hidden ${searchQuery && !'uti urinary tract infection fosfomycin nitrofurantoin ciprofloxacin ceftriaxone'.includes(searchQuery.toLowerCase()) ? 'hidden' : ''}`}>
                     <div className="bg-amber-100 px-3 py-2 font-bold text-amber-900 text-sm">Urinary Tract Infection (UTI)</div>
                     <div className="p-3 text-sm space-y-2">
                       <div><strong>Uncomplicated Cystitis:</strong> Fosfomycin 3g oral x1 <u>OR</u> Nitrofurantoin 100mg 1x2 x 5 days</div>
@@ -292,7 +304,7 @@ Plan:
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-lg border border-amber-100 shadow-sm overflow-hidden">
+                  <div className={`bg-white rounded-lg border border-amber-100 shadow-sm overflow-hidden ${searchQuery && !'skin soft tissue cellulitis abscess dicloxacillin cephalexin bactrim clindamycin'.includes(searchQuery.toLowerCase()) ? 'hidden' : ''}`}>
                     <div className="bg-amber-100 px-3 py-2 font-bold text-amber-900 text-sm">Skin & Soft Tissue (Cellulitis/Abscess)</div>
                     <div className="p-3 text-sm space-y-2">
                       <div><strong>Non-purulent (Strep):</strong> Dicloxacillin <u>OR</u> Cephalexin 500mg 1x4</div>
@@ -313,4 +325,4 @@ Plan:
   );
 };
 
-export { PocketGuideModal };
+export { PocketGuideView };
