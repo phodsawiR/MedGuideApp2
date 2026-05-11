@@ -77,47 +77,48 @@ const ClinicalCalculatorView = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col md:flex-row">
         {/* Tabs - Only show when not searching */}
         {!isSearchMode && (
-          <div className="flex bg-gray-50 p-2 overflow-x-auto custom-scrollbar border-b border-gray-200">
+          <div className="flex flex-col bg-gray-50 p-3 border-b md:border-b-0 md:border-r border-gray-200 md:w-64 shrink-0 space-y-2">
+            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-2">Calculators</h4>
             <button
               onClick={() => setActiveTab('iv')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
-                activeTab === 'iv' ? 'bg-white shadow-sm text-blue-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700'
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-left ${
+                activeTab === 'iv' ? 'bg-white shadow-sm text-blue-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
-              <Droplet size={16} /> IV Fluid (4-2-1)
+              <Droplet size={18} /> <span>IV Fluid (4-2-1)</span>
             </button>
             <button
               onClick={() => setActiveTab('crcl')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
-                activeTab === 'crcl' ? 'bg-white shadow-sm text-amber-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700'
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-left ${
+                activeTab === 'crcl' ? 'bg-white shadow-sm text-amber-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
-              <Activity size={16} /> CrCl (Cockcroft-Gault)
+              <Activity size={18} /> <span>CrCl (Cockcroft-Gault)</span>
             </button>
             <button
               onClick={() => setActiveTab('ca')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
-                activeTab === 'ca' ? 'bg-white shadow-sm text-purple-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700'
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-left ${
+                activeTab === 'ca' ? 'bg-white shadow-sm text-purple-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
-              <Bone size={16} /> Corrected Calcium
+              <Bone size={18} /> <span>Corrected Calcium</span>
             </button>
             <button
               onClick={() => setActiveTab('gcs')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
-                activeTab === 'gcs' ? 'bg-white shadow-sm text-pink-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700'
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-left ${
+                activeTab === 'gcs' ? 'bg-white shadow-sm text-pink-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
-              <BrainCircuit size={16} /> GCS Score
+              <BrainCircuit size={18} /> <span>GCS Score</span>
             </button>
           </div>
         )}
 
         {/* Content */}
-        <div className="p-4 md:p-6 bg-slate-50 min-h-[500px] space-y-8">
+        <div className="p-4 md:p-6 bg-slate-50 min-h-[500px] flex-1 space-y-8">
           
           {/* Empty State */}
           {isSearchMode && !showIV && !showCrCl && !showCa && !showGCS && (

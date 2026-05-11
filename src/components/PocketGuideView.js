@@ -106,45 +106,46 @@ Plan:
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex flex-col md:flex-row">
         {/* Tabs */}
-        <div className="flex bg-gray-50 p-2 overflow-x-auto custom-scrollbar border-b border-gray-200">
+        <div className="flex flex-col bg-gray-50 p-3 border-b md:border-b-0 md:border-r border-gray-200 md:w-64 shrink-0 space-y-2">
+          <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 px-2">Pocket Guides</h4>
           <button
             onClick={() => setActiveTab('notes')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
-              activeTab === 'notes' ? 'bg-white shadow-sm text-blue-700 border border-gray-200' : 'text-gray-500 hover:text-gray-700'
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-left ${
+              activeTab === 'notes' ? 'bg-white shadow-sm text-blue-700 border border-gray-200' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <FileText size={16} /> Smart Note Templates
+            <FileText size={18} /> <span>Smart Note Templates</span>
           </button>
           <button
             onClick={() => setActiveTab('drugs')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
-              activeTab === 'drugs' ? 'bg-white shadow-sm text-red-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700'
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-left ${
+              activeTab === 'drugs' ? 'bg-white shadow-sm text-red-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <Zap size={16} /> Emergency Drugs
+            <Zap size={18} /> <span>Emergency Drugs</span>
           </button>
           <button
             onClick={() => setActiveTab('labs')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
-              activeTab === 'labs' ? 'bg-white shadow-sm text-purple-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700'
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-left ${
+              activeTab === 'labs' ? 'bg-white shadow-sm text-purple-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <FlaskConical size={16} /> Quick Lab Ref
+            <FlaskConical size={18} /> <span>Quick Lab Ref</span>
           </button>
           <button
             onClick={() => setActiveTab('abx')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${
-              activeTab === 'abx' ? 'bg-white shadow-sm text-amber-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700'
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all text-left ${
+              activeTab === 'abx' ? 'bg-white shadow-sm text-amber-600 border border-gray-200' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
             }`}
           >
-            <ShieldAlert size={16} /> Antibiotic Guide
+            <ShieldAlert size={18} /> <span>Antibiotic Guide</span>
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-4 md:p-6 bg-slate-50 min-h-[500px]">
+        <div className="p-4 md:p-6 bg-slate-50 min-h-[500px] flex-1">
           
           {/* Note Templates */}
           {activeTab === 'notes' && (
