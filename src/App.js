@@ -789,55 +789,66 @@ export default function MedGuideApp() {
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
               />
             </div>
-            <div className="p-4 border-t border-gray-200 bg-gray-50 flex flex-col gap-2">
-              <a
-                href="https://gemini.google.com/gem/1WPakiMymn-lMY5epP8rjWvygRgFqWqw4?usp=sharing"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 py-2 text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg font-bold transition-all shadow-sm"
-              >
-                <Zap size={16} /> ถามAC (Gemini)
-              </a>
-              <a
-                href="https://drive.google.com/drive/folders/1ZPSXyXyEys4IZ2_z-Ij1mzoDXyVLi_pP"
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-center gap-2 py-2 text-sm text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg font-bold transition-all shadow-sm"
-              >
-                <ImageIcon size={16} /> คลังรูปภาพ
-              </a>
-              <button
-                onClick={() => setShowHelp(true)}
-                className="flex items-center justify-center gap-2 py-2 text-sm text-gray-700 bg-white hover:bg-gray-100 border border-gray-300 rounded-lg font-bold transition-all shadow-sm"
-              >
-                <span className="text-base">📖</span> คู่มือการใช้งาน
-              </button>
-              
-              <button
-                onClick={() => { setShowPocketGuide(true); setIsSidebarOpen(false); }}
-                className="flex items-center justify-center gap-2 py-2 text-sm text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg font-bold transition-all shadow-sm"
-              >
-                <HeartPulse size={16} /> Ward Pocket Guide
-              </button>
-              
-              <button
-                onClick={() => { setShowCalculator(true); setIsSidebarOpen(false); }}
-                className="flex items-center justify-center gap-2 py-2 text-sm text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg font-bold transition-all shadow-sm"
-              >
-                <Calculator size={16} /> Clinical Calculator
-              </button>
+            <div className="p-4 border-t border-gray-200 bg-gray-50 flex flex-col gap-3">
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Clinical Tools</label>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => { setShowPocketGuide(true); setIsSidebarOpen(false); }}
+                    className="flex items-center justify-center gap-2 py-2.5 text-sm text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg font-bold transition-all shadow-sm"
+                  >
+                    <HeartPulse size={16} /> Ward Pocket Guide
+                  </button>
+                  
+                  <button
+                    onClick={() => { setShowCalculator(true); setIsSidebarOpen(false); }}
+                    className="flex items-center justify-center gap-2 py-2.5 text-sm text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg font-bold transition-all shadow-sm"
+                  >
+                    <Calculator size={16} /> Clinical Calculator
+                  </button>
+                </div>
+              </div>
 
-              <button
-                onClick={() => setShowAdmin(!showAdmin)}
-                className={`flex items-center justify-center gap-2 py-2 text-sm border rounded-lg font-bold transition-all shadow-sm ${
-                  showAdmin
-                    ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
-                    : "bg-gray-800 text-white border-gray-800 hover:bg-gray-900"
-                }`}
-              >
-                {showAdmin ? <X size={16} /> : <Database size={16} />}
-                {showAdmin ? "ปิด Admin Mode" : "Admin Mode"}
-              </button>
+              <div className="border-t border-gray-200 my-1"></div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">General</label>
+                <div className="flex flex-col gap-2">
+                  <a
+                    href="https://gemini.google.com/gem/1WPakiMymn-lMY5epP8rjWvygRgFqWqw4?usp=sharing"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 py-2 text-sm text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg font-bold transition-all shadow-sm"
+                  >
+                    <Zap size={16} /> ถามAC (Gemini)
+                  </a>
+                  <a
+                    href="https://drive.google.com/drive/folders/1ZPSXyXyEys4IZ2_z-Ij1mzoDXyVLi_pP"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-center gap-2 py-2 text-sm text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg font-bold transition-all shadow-sm"
+                  >
+                    <ImageIcon size={16} /> คลังรูปภาพ
+                  </a>
+                  <button
+                    onClick={() => setShowHelp(true)}
+                    className="flex items-center justify-center gap-2 py-2 text-sm text-gray-700 bg-white hover:bg-gray-100 border border-gray-300 rounded-lg font-bold transition-all shadow-sm"
+                  >
+                    <span className="text-base">📖</span> คู่มือการใช้งาน
+                  </button>
+                  <button
+                    onClick={() => setShowAdmin(!showAdmin)}
+                    className={`flex items-center justify-center gap-2 py-2 text-sm border rounded-lg font-bold transition-all shadow-sm ${
+                      showAdmin
+                        ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+                        : "bg-gray-800 text-white border-gray-800 hover:bg-gray-900"
+                    }`}
+                  >
+                    {showAdmin ? <X size={16} /> : <Database size={16} />}
+                    {showAdmin ? "ปิด Admin Mode" : "Admin Mode"}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
           <div className="p-4 border-t border-gray-100 text-center text-xs text-gray-400">
