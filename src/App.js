@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from "react";
 import {
   Search,
   Filter,
@@ -74,6 +74,8 @@ import { AIQuizModal } from './components/AIQuizModal';
 import { QuizBank } from './components/QuizBank';
 import { ClinicalCalculatorView } from './components/ClinicalCalculatorView';
 import { PocketGuideView } from './components/PocketGuideView';
+
+const ACPractice = lazy(() => import('./components/ACPractice'));
 
 // --- Firebase Setup ---
 const firebaseConfig = {
@@ -211,7 +213,11 @@ export default function MedGuideApp() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showHelp, setShowHelp] = React.useState(false);
-  const [activeTab, setActiveTab] = useState("knowledge");
+  const [activeTab, setActiveTab] = useState(() => window.location.hash === "#ac-usmle" ? "ac_usmle" : "knowledge");
+  useEffect(() => {
+    if (activeTab === "ac_usmle") window.history.replaceState(null, "", "#ac-usmle");
+    else if (window.location.hash === "#ac-usmle") window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  }, [activeTab]);
   const [quizzes, setQuizzes] = useState([]);
   const [previewAnswers, setPreviewAnswers] = useState({});
 
@@ -948,6 +954,12 @@ export default function MedGuideApp() {
               >
                 <Calculator size={16} /> Calculator
               </button>
+              <button
+                onClick={() => setActiveTab("ac_usmle")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${activeTab === "ac_usmle" ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-600 dark:text-white" : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"}`}
+              >
+                <ListChecks size={16} /> AC USMLE · 206 ข้อ
+              </button>
               {/* Standalone drill page under public/ — plain HTML, not a React
                   view, so it opens in its own tab rather than swapping activeTab. */}
               <a
@@ -1289,6 +1301,12 @@ export default function MedGuideApp() {
             <div className="animate-in fade-in slide-in-from-bottom-4">
               <QuizBank quizzes={quizzes} db={db} />
             </div>
+          )}
+
+          {activeTab === "ac_usmle" && (
+            <Suspense fallback={<p className="text-center p-8" role="status">กำลังโหลดชุดโจทย์ AC…</p>}>
+              <ACPractice />
+            </Suspense>
           )}
 
           {activeTab === "pocket_guide" && (
