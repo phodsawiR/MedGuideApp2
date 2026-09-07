@@ -34,7 +34,7 @@ test('grading is explicit, independent for main/twist, and resets just the curre
   const cards = container.querySelectorAll('section');
   expect(cards[0].querySelector('.ac-explanation')).toBeNull();
   expect(cards[0].querySelector('.ac-primary').disabled).toBe(true);
-  click(cards[0].querySelectorAll('.ac-option')['ABCDE'.indexOf(bank.records[0].main.answer)]);
+  click([...cards[0].querySelectorAll('.ac-option')].find(b => b.querySelector('span').textContent === bank.records[0].main.choices[bank.records[0].main.answer]));
   click(cards[0].querySelector('.ac-primary'));
   expect(cards[0].textContent).toContain('✓ ตอบถูก');
   expect(cards[1].querySelector('.ac-explanation')).toBeNull();
@@ -70,4 +70,23 @@ test('unavailable or malformed local storage does not prevent practicing', () =>
     click(container.querySelector('.ac-option')); click(container.querySelector('.ac-primary'));
     expect(container.querySelector('.ac-explanation')).not.toBeNull();
   } finally { spy.mockRestore(); }
+});
+
+test('restored progress grades by original choice while labels follow shuffled positions', () => {
+  const id = bank.records[0].id;
+  const answer = bank.records[0].main.answer;
+  const order = ['B', 'C', 'D', 'E', 'A'];
+  localStorage.setItem('medguide.ped.ac-orders.v1', JSON.stringify({ [`${id}:main`]: order }));
+  // A pre-shuffle saved answer must still mean the same clinical option.
+  localStorage.setItem('medguide.ped.ac-practice.v1', JSON.stringify({ [`${id}:main`]: { selected: answer, revealed: true } }));
+  render();
+  const card = container.querySelector('section');
+  expect(card.querySelector('.ac-result').textContent).toContain(`เฉลย ${'ABCDE'[order.indexOf(answer)]}.`);
+  expect(card.querySelector('.ac-result').textContent).toContain('✓ ตอบถูก');
+  const before = [...card.querySelectorAll('.ac-option span')].map(n => n.textContent);
+  click([...container.querySelectorAll('button')].find(b => b.textContent === 'ลองคู่นี้ใหม่'));
+  const after = [...container.querySelectorAll('section')[0].querySelectorAll('.ac-option span')].map(n => n.textContent);
+  expect(after.indexOf(bank.records[0].main.choices[answer])).not.toBe(before.indexOf(bank.records[0].main.choices[answer]));
+  click(container.querySelector('.ac-option'));
+  expect([...container.querySelector('section').querySelectorAll('.ac-option span')].map(n => n.textContent)).toEqual(after);
 });

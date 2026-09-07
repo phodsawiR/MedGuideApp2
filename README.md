@@ -23,3 +23,11 @@ Validation: `npm test -- --watchAll=false --runInBand` and `npm run build`.
 
 Pediatrics uses its own data file and `medguide.ped.ac-practice.v1` progress key.
 The medicine MCQ bank remains at `public/quiz/` with its original data unchanged.
+
+Pediatrics choices are shuffled per question and saved under
+`medguide.ped.ac-orders.v1`. Answer progress still stores original choice IDs, so
+existing scores remain valid. Retrying a pair reshuffles both questions and moves
+the correct choice to a different displayed letter. Audited prose-reference spans
+in `src/data/acChoiceReferences.json` relabel only option letters; medical names
+and English articles are preserved. If source explanation text changes, review
+these offsets and run the alignment tests before publishing.

@@ -1,9 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import bank from '../data/acPractice.json';
 import './ACPractice.css';
+import choiceReferences from '../data/acChoiceReferences.json';
+import { LETTERS, isOrder, shuffleOrder, relabelReferences } from '../utils/acChoiceOrder';
 
 const STORAGE_KEY = 'medguide.ped.ac-practice.v1';
-const LETTERS = ['A', 'B', 'C', 'D', 'E'];
+const ORDER_KEY = 'medguide.ped.ac-orders.v1';
+function readOrders() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(ORDER_KEY)) || {}; } catch { /* optional storage */ }
+  return Object.fromEntries(bank.records.flatMap(r => ['main', 'twist'].map(kind => {
+    const key = `${r.id}:${kind}`;
+    return [key, isOrder(saved[key]) ? saved[key] : shuffleOrder()];
+  })));
+}
 
 function readProgress() {
   try {
@@ -15,7 +25,9 @@ function readProgress() {
   } catch { return {}; }
 }
 
-function Question({ question, label, progress, onChange }) {
+function Question({ question, label, progress, onChange, order, references = {} }) {
+  const displayLetter = original => LETTERS[order.indexOf(original)];
+  const explain = (text, field) => relabelReferences(text, references[field], order);
   const selected = progress?.selected;
   const revealed = progress?.revealed === true;
   return (
@@ -23,14 +35,14 @@ function Question({ question, label, progress, onChange }) {
       <h3>{label}</h3>
       <p className="ac-stem">{question.stem}</p>
       <div className="ac-options" role="group" aria-label={`ตัวเลือก${label}`}>
-        {LETTERS.map(letter => (
+        {order.map(letter => (
           <button
             type="button" key={letter} aria-pressed={selected === letter}
             disabled={revealed}
             className={`ac-option ${selected === letter ? 'is-selected' : ''} ${revealed && question.answer === letter ? 'is-correct' : ''} ${revealed && selected === letter && selected !== question.answer ? 'is-wrong' : ''}`}
             onClick={() => onChange({ selected: letter, revealed: false })}
           >
-            <strong>{letter}.</strong><span>{question.choices[letter]}</span>
+            <strong>{displayLetter(letter)}.</strong><span>{question.choices[letter]}</span>
           </button>
         ))}
       </div>
@@ -38,14 +50,14 @@ function Question({ question, label, progress, onChange }) {
         onClick={() => onChange({ selected, revealed: true })}>ตรวจคำตอบและเปิดเฉลย</button>}
       {revealed && (
         <div className="ac-explanation" aria-live="polite">
-          <p className="ac-result">{selected === question.answer ? '✓ ตอบถูก' : 'ลองทบทวนจุดตัดสินคำตอบ'} · เฉลย {question.answer}. {question.choices[question.answer]}</p>
+          <p className="ac-result">{selected === question.answer ? '✓ ตอบถูก' : 'ลองทบทวนจุดตัดสินคำตอบ'} · เฉลย {displayLetter(question.answer)}. {question.choices[question.answer]}</p>
           {question.changed_facts && <p><strong>จุดที่เปลี่ยน:</strong> {question.changed_facts.join(' / ')}</p>}
-          <p>{question.explanation}</p>
+          <p>{explain(question.explanation, 'explanation')}</p>
           <h4>เหตุผลของตัวลวง</h4>
-          {typeof question.distractors === 'string' ? <p>{question.distractors}</p> : (
-            <ul>{Object.entries(question.distractors).map(([letter, text]) => <li key={letter}><strong>{letter}:</strong> {text}</li>)}</ul>
+          {typeof question.distractors === 'string' ? <p>{explain(question.distractors, 'distractors')}</p> : (
+            <ul>{order.filter(letter => letter !== question.answer).map(letter => <li key={letter}><strong>{displayLetter(letter)}:</strong> {explain(question.distractors[letter], `distractors.${letter}`)}</li>)}</ul>
           )}
-          <h4>นำไปใช้กับข้อสอบจริง</h4><p>{question.learning_point}</p>
+          <h4>นำไปใช้กับข้อสอบจริง</h4><p>{explain(question.learning_point, 'learning_point')}</p>
         </div>
       )}
     </section>
@@ -57,11 +69,12 @@ export default function ACPractice() {
   const [search, setSearch] = useState('');
   const [activeId, setActiveId] = useState(bank.records[0]?.id);
   const [progress, setProgress] = useState(readProgress);
+  const [orders, setOrders] = useState(readOrders);
   const [storageWarning, setStorageWarning] = useState(false);
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); setStorageWarning(false); }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(progress)); localStorage.setItem(ORDER_KEY, JSON.stringify(orders)); setStorageWarning(false); }
     catch { setStorageWarning(true); }
-  }, [progress]);
+  }, [progress, orders]);
   const systems = useMemo(() => [...new Set(bank.records.flatMap(r => r.systems))].sort(), []);
   const pool = useMemo(() => bank.records.filter(r =>
     (system === 'all' || r.systems.includes(system)) &&
@@ -79,6 +92,10 @@ export default function ACPractice() {
     if (candidates.length) setActiveId(candidates[Math.floor(Math.random() * candidates.length)].id);
   }
   function resetPair() {
+    setOrders(prev => ({ ...prev,
+      [`${current.id}:main`]: shuffleOrder(prev[`${current.id}:main`], current.main.answer),
+      [`${current.id}:twist`]: shuffleOrder(prev[`${current.id}:twist`], current.twist.answer),
+    }));
     setProgress(prev => {
       const next = { ...prev };
       delete next[`${current.id}:main`]; delete next[`${current.id}:twist`];
@@ -93,7 +110,7 @@ export default function ACPractice() {
         <p>{bank.records.length} คู่ · {bank.records.length * 2} โจทย์ พร้อมเฉลยและเหตุผล</p>
         <p className="ac-muted">โจทย์สร้างใหม่จากแนวคิดใน AC ไม่ใช่ข้อความหรือเฉลยข้อสอบเดิม ลองตอบทั้งสองแบบ แล้วหาข้อมูลที่ทำให้คำตอบเปลี่ยน</p>
         <p role="status">ทำแล้ว {completed}/{bank.records.length * 2} ข้อ · ถูก {correct} ข้อ</p>
-        {storageWarning ? <p className="ac-muted">บันทึกความก้าวหน้าในเครื่องไม่ได้ คำตอบยังใช้ได้ระหว่างเปิดหน้านี้</p> : <p className="ac-muted ac-small">บันทึกคำตอบในเบราว์เซอร์นี้อัตโนมัติ</p>}
+        {storageWarning ? <p className="ac-muted">บันทึกความก้าวหน้าในเครื่องไม่ได้ คำตอบยังใช้ได้ระหว่างเปิดหน้านี้</p> : <p className="ac-muted ac-small">สุ่มช้อยส์แล้ว · บันทึกคำตอบในเบราว์เซอร์นี้อัตโนมัติ</p>}
       </header>
       <div className="ac-controls">
         <label>ระบบ<select value={system} onChange={e => setSystem(e.target.value)}>
@@ -111,8 +128,8 @@ export default function ACPractice() {
           <button type="button" disabled={index === pool.length - 1} onClick={() => setActiveId(pool[index + 1].id)}>ถัดไป →</button>
         </nav>
         <div key={current.id}>
-          <Question label="โจทย์หลัก" question={current.main} progress={progress[`${current.id}:main`]} onChange={v => update(`${current.id}:main`, v)} />
-          <Question label="โจทย์บิด" question={current.twist} progress={progress[`${current.id}:twist`]} onChange={v => update(`${current.id}:twist`, v)} />
+          <Question label="โจทย์หลัก" question={current.main} order={orders[`${current.id}:main`]} references={choiceReferences[`${current.id}:main`]} progress={progress[`${current.id}:main`]} onChange={v => update(`${current.id}:main`, v)} />
+          <Question label="โจทย์บิด" question={current.twist} order={orders[`${current.id}:twist`]} references={choiceReferences[`${current.id}:twist`]} progress={progress[`${current.id}:twist`]} onChange={v => update(`${current.id}:twist`, v)} />
           <button type="button" onClick={resetPair}>ลองคู่นี้ใหม่</button>
           <details className="ac-sources"><summary>ต้นแบบและแหล่งอ้างอิง</summary>
             <p>Sources: [{current.id}] — {current.source_file} (ped)</p>
