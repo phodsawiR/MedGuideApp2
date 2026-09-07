@@ -3,7 +3,7 @@ Created with CodeSandbox
 
 ## AC USMLE practice
 
-Open the **AC USMLE · 206 ข้อ** tab, or append `#ac-usmle` to the app URL.
+Open the **เด็ก · AC USMLE (206 ข้อ)** tab, or append `#ac-usmle` to the app URL.
 The React view includes 103 pairs (main question + answer-changing twist),
 system/search filters, random navigation, explicit answer grading, explanations,
 and clinical source links. Progress is stored in this browser's localStorage;
@@ -20,3 +20,6 @@ references together when updating a pair. The original standalone MCQ page and
 Firebase quiz collection remain separate.
 
 Validation: `npm test -- --watchAll=false --runInBand` and `npm run build`.
+
+Pediatrics uses its own data file and `medguide.ped.ac-practice.v1` progress key.
+The medicine MCQ bank remains at `public/quiz/` with its original data unchanged.

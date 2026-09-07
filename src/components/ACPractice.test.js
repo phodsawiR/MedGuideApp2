@@ -39,7 +39,7 @@ test('grading is explicit, independent for main/twist, and resets just the curre
   expect(cards[0].textContent).toContain('✓ ตอบถูก');
   expect(cards[1].querySelector('.ac-explanation')).toBeNull();
   expect(container.querySelector('[role="status"]').textContent).toContain('ทำแล้ว 1/206');
-  expect(JSON.parse(localStorage.getItem('medguide.ac-practice.v1'))[`${bank.records[0].id}:main`].revealed).toBe(true);
+  expect(JSON.parse(localStorage.getItem('medguide.ped.ac-practice.v1'))[`${bank.records[0].id}:main`].revealed).toBe(true);
   click([...container.querySelectorAll('button')].find(b => b.textContent === 'ลองคู่นี้ใหม่'));
   expect(container.querySelector('.ac-explanation')).toBeNull();
   expect(container.querySelector('[role="status"]').textContent).toContain('ทำแล้ว 0/206');
@@ -62,7 +62,7 @@ test('navigation retains answers and filters handle empty results without losing
 });
 
 test('unavailable or malformed local storage does not prevent practicing', () => {
-  localStorage.setItem('medguide.ac-practice.v1', '{broken');
+  localStorage.setItem('medguide.ped.ac-practice.v1', '{broken');
   const spy = jest.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked'); });
   try {
     render(); expect(container.querySelectorAll('.ac-option')).toHaveLength(10);

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import bank from '../data/acPractice.json';
 import './ACPractice.css';
 
-const STORAGE_KEY = 'medguide.ac-practice.v1';
+const STORAGE_KEY = 'medguide.ped.ac-practice.v1';
 const LETTERS = ['A', 'B', 'C', 'D', 'E'];
 
 function readProgress() {
@@ -89,7 +89,7 @@ export default function ACPractice() {
     <div className="ac-practice">
       <header className="ac-heading">
         <p className="ac-eyebrow">PEDIATRICS · AC → USMLE</p>
-        <h2>ฝึกคิด แล้วลองบิดโจทย์</h2>
+        <h2>กุมารเวชศาสตร์ · ฝึกคิดและบิดโจทย์</h2>
         <p>{bank.records.length} คู่ · {bank.records.length * 2} โจทย์ พร้อมเฉลยและเหตุผล</p>
         <p className="ac-muted">โจทย์สร้างใหม่จากแนวคิดใน AC ไม่ใช่ข้อความหรือเฉลยข้อสอบเดิม ลองตอบทั้งสองแบบ แล้วหาข้อมูลที่ทำให้คำตอบเปลี่ยน</p>
         <p role="status">ทำแล้ว {completed}/{bank.records.length * 2} ข้อ · ถูก {correct} ข้อ</p>
