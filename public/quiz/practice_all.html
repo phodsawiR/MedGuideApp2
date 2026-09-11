@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MED MCQ Practice — MedGuide</title>
+<title>MED + PED MCQ Practice — MedGuide</title>
 <style>
   :root {
     --bg: #f6f7f9;
@@ -154,10 +154,10 @@
 <body>
 <div class="wrap">
   <div class="topbar">
-    <h1>MED MCQ Practice</h1>
+    <h1>MED + PED MCQ Practice</h1>
     <div class="grow sub" id="banner">กำลังโหลดคลังโจทย์…</div>
-    <a class="button" href="practice_ped.html">👶 ไปคลัง PED</a>
-    <a class="button" href="practice_all.html">🔀 รวม MED + PED</a>
+    <a class="button" href="practice.html">🩺 เฉพาะ MED</a>
+    <a class="button" href="practice_ped.html">👶 เฉพาะ PED</a>
     <button id="btnSetup">⚙️ ตั้งค่า</button>
     <button id="btnDash">📊 สรุป</button>
   </div>
@@ -206,7 +206,7 @@
         <button class="primary" id="btnNext">ข้อถัดไป →</button>
         <button id="btnStar">☆ ลืมบ่อย</button>
         <button id="btnSkip">ข้าม</button>
-        <button id="btnFix">✏️ แก้เฉลย</button>
+        <button id="btnFix" class="hide">✏️ แก้เฉลย</button>
         <button id="btnObs" class="hide">📓 เปิดโน้ต</button>
       </div>
       <div id="fixPanel" class="box hide" style="margin-top:14px">
@@ -264,12 +264,43 @@
 <div class="statbar" id="statbar"></div>
 
 <script src="data/quiz_bank.js"></script>
+<script>window.MED_QUIZ_BANK = window.QUIZ_BANK;</script>
+<script src="data/quiz_bank_ped.js"></script>
+<script>
+window.PED_QUIZ_BANK = window.QUIZ_BANK;
+(function () {
+  function cards(bank, subject) {
+    return bank.questions.map(function (source) {
+      var q = Object.assign({}, source);
+      q.source_id = source.id;
+      q.id = subject.toLowerCase() + ":" + source.id;
+      q.subject = subject;
+      return q;
+    });
+  }
+  var med = window.MED_QUIZ_BANK;
+  var ped = window.PED_QUIZ_BANK;
+  var questions = cards(med, "MED").concat(cards(ped, "PED"));
+  window.QUIZ_BANK = {
+    meta: {
+      built_at: med.meta.built_at + " / " + ped.meta.built_at,
+      total: questions.length,
+      mcq: med.meta.mcq + ped.meta.mcq,
+      twist: med.meta.twist + ped.meta.twist,
+      systems: Array.from(new Set(med.meta.systems.concat(ped.meta.systems))).sort(),
+      years: Array.from(new Set(med.meta.years.concat(ped.meta.years))).sort(),
+      subjects: ["MED", "PED"]
+    },
+    questions: questions
+  };
+})();
+</script>
 <script>
 (function () {
   "use strict";
 
   var BANK = window.QUIZ_BANK;
-  var STORAGE_KEY = "caseflow_mcq_practice_v1";
+  var STORAGE_KEY = "caseflow_med_ped_mcq_practice_v1";
   var VAULT_NAME = "Obsidian vault";
 
   if (!BANK || !BANK.questions) {
@@ -613,8 +644,9 @@
     var s = store.stats[q.id];
 
     var badges = [];
+    badges.push('<span class="badge tw">' + esc(q.subject) + "</span>");
     badges.push('<span class="badge">' + esc(q.systems.join(" / ")) + "</span>");
-    badges.push('<span class="badge">' + esc(q.id) + (q.year ? " · " + q.year : "") + "</span>");
+    badges.push('<span class="badge">' + esc(q.source_id || q.id) + (q.year ? " · " + q.year : "") + "</span>");
     if (q.type === "twist") badges.push('<span class="badge tw">🔄 โจทย์บิด</span>');
     if (q.repeat_count >= 3) {
       badges.push('<span class="badge hy">🔥 ออกซ้ำ ' + q.repeat_count + " ครั้ง</span>");
@@ -906,7 +938,7 @@
     if (wrongIds.length) {
       html += box("trap", "ข้อที่พลาดในรอบนี้ (" + wrongIds.length + " ข้อ)",
         wrongIds.map(function (q) {
-          return "- " + q.id + " — " + q.systems.join("/") +
+          return "- " + q.subject + " · " + (q.source_id || q.id) + " — " + q.systems.join("/") +
                  (q.topic ? " · " + q.topic : "");
         }).join("\n"));
       html += '<div class="sub">ข้อที่ผิด ≥2 ครั้งจะถูกติดดาวอัตโนมัติ — เลือกโหมด "⭐ เฉพาะข้อที่ลืมบ่อย" เพื่อวนทบทวน</div>';
@@ -979,7 +1011,7 @@
       starred.sort(function (a, b) { return store.stats[b].wrong - store.stats[a].wrong; })
         .forEach(function (id) {
           var s = store.stats[id], q = byId[id];
-          h2 += "<tr><td>" + esc(id) + (s.auto && !s.star ? " <span class='sub'>(auto)</span>" : "") +
+          h2 += "<tr><td>" + esc(q.subject + " · " + (q.source_id || q.id)) + (s.auto && !s.star ? " <span class='sub'>(auto)</span>" : "") +
                 "</td><td>" + esc(q.systems.join("/")) + "</td><td class='num'>" + s.wrong +
                 "</td><td class='num'>" + s.correct +
                 "</td><td><button data-unstar='" + esc(id) + "'>ปลดดาว</button></td></tr>";

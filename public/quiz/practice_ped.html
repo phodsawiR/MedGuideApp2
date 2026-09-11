@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MED MCQ Practice — MedGuide</title>
+<title>PED MCQ Practice — MedGuide</title>
 <style>
   :root {
     --bg: #f6f7f9;
@@ -154,9 +154,9 @@
 <body>
 <div class="wrap">
   <div class="topbar">
-    <h1>MED MCQ Practice</h1>
+    <h1>PED MCQ Practice</h1>
     <div class="grow sub" id="banner">กำลังโหลดคลังโจทย์…</div>
-    <a class="button" href="practice_ped.html">👶 ไปคลัง PED</a>
+    <a class="button" href="practice.html">🩺 ไปคลัง MED</a>
     <a class="button" href="practice_all.html">🔀 รวม MED + PED</a>
     <button id="btnSetup">⚙️ ตั้งค่า</button>
     <button id="btnDash">📊 สรุป</button>
@@ -263,18 +263,18 @@
 
 <div class="statbar" id="statbar"></div>
 
-<script src="data/quiz_bank.js"></script>
+<script src="data/quiz_bank_ped.js"></script>
 <script>
 (function () {
   "use strict";
 
   var BANK = window.QUIZ_BANK;
-  var STORAGE_KEY = "caseflow_mcq_practice_v1";
+  var STORAGE_KEY = "caseflow_ped_mcq_practice_v1";
   var VAULT_NAME = "Obsidian vault";
 
   if (!BANK || !BANK.questions) {
     document.getElementById("banner").textContent =
-      "โหลดคลังไม่สำเร็จ — รัน `python build_quiz_bank.py` เพื่อสร้าง quiz/data/quiz_bank.js ก่อน";
+      "โหลดคลังไม่สำเร็จ — รัน `python build_quiz_bank.py` เพื่อสร้าง quiz/data/quiz_bank_ped.js ก่อน";
     return;
   }
 

@@ -960,15 +960,31 @@ export default function MedGuideApp() {
               >
                 <ListChecks size={16} /> เด็ก · AC USMLE (206 ข้อ)
               </button>
-              {/* Standalone drill page under public/ — plain HTML, not a React
-                  view, so it opens in its own tab rather than swapping activeTab. */}
+              {/* Standalone drill pages under public/ — plain HTML, not React
+                  views, so each opens in its own tab rather than swapping activeTab. */}
               <a
                 href={`${process.env.PUBLIC_URL}/quiz/practice.html`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
               >
-                <ListChecks size={16} /> อายุรฯ · MCQ (AC)
+                <ListChecks size={16} /> ฝึก MCQ อายุรฯ
+              </a>
+              <a
+                href={`${process.env.PUBLIC_URL}/quiz/practice_ped.html`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+              >
+                <ListChecks size={16} /> ฝึก MCQ เด็ก
+              </a>
+              <a
+                href={`${process.env.PUBLIC_URL}/quiz/practice_all.html`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+              >
+                <ListChecks size={16} /> รวม MED + PED
               </a>
             </div>
             
