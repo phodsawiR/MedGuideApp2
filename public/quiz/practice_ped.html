@@ -206,18 +206,17 @@
         <button class="primary" id="btnNext">ข้อถัดไป →</button>
         <button id="btnStar">☆ ลืมบ่อย</button>
         <button id="btnSkip">ข้าม</button>
-        <button id="btnFix">✏️ แก้เฉลย</button>
+        <button id="btnFix" class="hide">✏️ แก้เฉลย</button>
         <button id="btnObs" class="hide">📓 เปิดโน้ต</button>
       </div>
       <div id="fixPanel" class="box hide" style="margin-top:14px">
         <div class="h">✏️ แก้เฉลยข้อนี้</div>
         <div class="sub" style="margin-bottom:8px">
-          เก็บไว้ในเครื่องก่อน แล้ว export ไปเขียนกลับเข้าโน้ตด้วย
-          <code>apply_answer_fixes.py</code> — โน้ตคือต้นฉบับจริง
+          บันทึกให้ทุกเครื่องเห็นตรงกัน พร้อมเก็บประวัติการแก้
         </div>
         <div class="fieldlabel" style="margin-top:0">เฉลยที่ถูกคือ</div>
         <div class="chips" id="fixLetters"></div>
-        <div class="fieldlabel">เหตุผล (ไม่ใส่ก็ได้ — จะถูกเขียนลงโน้ตด้วย)</div>
+        <div class="fieldlabel">เหตุผล / แหล่งอ้างอิง</div>
         <input type="text" id="fixReason" placeholder="เช่น ไกด์ไลน์ 2024 เปลี่ยนเป็น…"
                style="width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--line);
                       background:var(--panel); color:var(--text); font:inherit">
@@ -327,7 +326,7 @@
   }
   // the answer to grade against: local override wins over the note until committed
   function effAnswer(q) {
-    var f = store.fixes[q.id];
+    var f = window.QuizOwner && window.QuizOwner.correction(q);
     return f ? f.answer : q.answer;
   }
 
@@ -708,12 +707,12 @@
     var html = '<div class="verdict ' + (ok ? "ok" : "bad") + '">' +
       (ok ? "✅ ถูกต้อง" : "❌ ผิด — เฉลยคือ " + shownAns) + "</div>";
 
-    var myFix = store.fixes[q.id];
+    var myFix = window.QuizOwner && window.QuizOwner.correction(q);
     if (myFix) {
-      html += box("", "✏️ ใช้เฉลยที่คุณแก้เอง — " + myFix.answer,
+      html += box("", "✏️ เฉลยที่ผู้ดูแลแก้ — " + myFix.answer,
         "โน้ตยังตอบ **" + q.answer + "** อยู่" +
         (myFix.reason ? "\nเหตุผลที่บันทึกไว้: " + myFix.reason : "") +
-        "\n*ยัง**ไม่ได้**เขียนกลับเข้าโน้ต — ไปที่ 📊 สรุป เพื่อ export แล้วรัน apply_answer_fixes.py*");
+        "\n*การแก้นี้ใช้บนเว็บ คำอธิบายต้นฉบับด้านล่างอาจยังอ้างเฉลยเดิม*");
     } else if (q.fixed) {
       html += box("ok", "✏️ เฉลยข้อนี้ถูกแก้ในโน้ตแล้ว (" + q.fixed.at + ")",
         "ต้นฉบับตอบ **" + q.fixed.was + "** → แก้เป็น **" + q.fixed.to + "**" +
@@ -761,17 +760,18 @@
   function closeFixPanel() { fixPanel.classList.add("hide"); }
 
   function openFixPanel() {
-    if (!current) return;
+    if (!current || !window.QuizOwner || !window.QuizOwner.canEdit()) return;
     var q = current;
-    var f = store.fixes[q.id];
+    var f = window.QuizOwner.correction(q);
+    var revision = window.QuizOwner.revision(q);
     var letters = Object.keys(q.choices).sort();
     var wrap = document.getElementById("fixLetters");
     wrap.innerHTML = "";
-    var chosen = f ? f.answer : null;
+    var chosen = f ? f.answer : q.answer;
     letters.forEach(function (L) {
       var c = document.createElement("div");
       c.className = "chip" + (chosen === L ? " on" : "");
-      c.textContent = L + (L === q.answer ? " (โน้ตตอบข้อนี้)" : "");
+      c.textContent = L + ". " + q.choices[L] + (L === q.answer ? " (เฉลยต้นฉบับ)" : "");
       c.onclick = function () {
         chosen = L;
         Array.prototype.forEach.call(wrap.children, function (x) { x.classList.remove("on"); });
@@ -781,28 +781,20 @@
     });
     document.getElementById("fixReason").value = f ? (f.reason || "") : "";
     document.getElementById("fixClear").classList.toggle("hide", !f);
-    document.getElementById("fixSave").onclick = function () {
-      if (!chosen) { alert("เลือกตัวอักษรที่เป็นเฉลยที่ถูกก่อน"); return; }
-      if (chosen === q.answer) {
-        // same as the note — nothing to override
-        delete store.fixes[q.id];
-      } else {
-        store.fixes[q.id] = {
-          answer: chosen,
-          was: q.answer,
-          reason: document.getElementById("fixReason").value.trim(),
-          at: new Date().toISOString().slice(0, 10)
-        };
-      }
-      undoLastAttemptFor(q.id);
-      save();
-      closeFixPanel();
-      renderQuestion();   // re-ask the card, now graded against the corrected answer
+    document.getElementById("fixSave").onclick = async function () {
+      if (!chosen) return;
+      var button = this; button.disabled = true;
+      try {
+        await window.QuizOwner.save(q, chosen, document.getElementById("fixReason").value, revision);
+        undoLastAttemptFor(q.id); save(); closeFixPanel(); renderQuestion();
+      } catch (e) { alert("บันทึกไม่ได้: " + e.message); }
+      finally { button.disabled = false; }
     };
+    document.getElementById("fixClear").textContent = "กลับไปใช้เฉลยต้นฉบับ";
     document.getElementById("fixClear").onclick = function () {
-      delete store.fixes[q.id];
-      undoLastAttemptFor(q.id);
-      save(); closeFixPanel(); renderQuestion();
+      chosen = q.answer;
+      document.getElementById("fixReason").value = "กลับไปใช้เฉลยต้นฉบับ";
+      document.getElementById("fixSave").click();
     };
     fixPanel.classList.remove("hide");
   }
@@ -994,6 +986,12 @@
     }
   }
 
+  window.addEventListener("quiz-owner-change", function () {
+    var allowed = window.QuizOwner && window.QuizOwner.canEdit();
+    document.getElementById("btnFix").classList.toggle("hide", !allowed);
+    if (!allowed) closeFixPanel();
+  });
+
   // ---------- wiring ----------
   document.getElementById("btnStart").onclick = startRound;
   document.getElementById("btnNext").onclick = next;
@@ -1122,5 +1120,6 @@
   show("setup");
 })();
 </script>
+<script type="module" src="owner-corrections.js"></script>
 </body>
 </html>

@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Preserve existing access for other data; never bypass quiz owner rules.
+    match /{topCollection}/{document=**} {
+      allow read, write: if topCollection != 'quizAnswerCorrections';
+    }
+// Merge inside match /databases/{database}/documents in the existing rules.
+// A broad overlapping allow rule must NOT grant writes to this collection.
+match /quizAnswerCorrections/{correctionId} {
+  function owner() {
+    return request.auth != null
+      && request.auth.token.email == 'phodsawi.2547@gmail.com'
+      && request.auth.token.email_verified == true
+      && request.auth.token.firebase.sign_in_provider == 'google.com';
+  }
+  function valid(d) {
+    return d.keys().hasOnly(['bank','questionId','answer','reason','fingerprint','revision','updatedAt','updatedBy'])
+      && d.bank == 'ped' && d.questionId is string && d.questionId.size() <= 200
+      && d.answer in ['A','B','C','D','E']
+      && d.reason is string && d.reason.size() > 0 && d.reason.size() <= 2000
+      && d.fingerprint is string && d.fingerprint.matches('^[a-f0-9]{64}$')
+      && d.revision is int && d.updatedAt == request.time && d.updatedBy == request.auth.uid;
+  }
+  allow read: if true;
+  allow create: if owner() && valid(request.resource.data) && request.resource.data.revision == 1
+    && getAfter(/databases/$(database)/documents/quizAnswerCorrections/$(correctionId)/history/1).data == request.resource.data;
+  allow update: if owner() && valid(request.resource.data)
+    && request.resource.data.questionId == resource.data.questionId
+    && request.resource.data.revision == resource.data.revision + 1
+    && getAfter(/databases/$(database)/documents/quizAnswerCorrections/$(correctionId)/history/$(request.resource.data.revision)).data == request.resource.data;
+  allow delete: if false;
+  match /history/{revisionId} {
+    allow read: if owner();
+    allow create: if owner() && valid(request.resource.data)
+      && getAfter(/databases/$(database)/documents/quizAnswerCorrections/$(correctionId)).data == request.resource.data;
+    allow update, delete: if false;
+  }
+}
+
+  }
+}
