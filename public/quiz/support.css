@@ -1,0 +1,48 @@
+.medguide-support {
+  margin-top: 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.medguide-support summary {
+  padding: 12px 16px;
+  scroll-margin-block: 100px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.medguide-support summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 12px;
+}
+
+.medguide-support[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.medguide-support-content {
+  padding: 16px;
+}
+
+/* Clip the original JPEG without changing or regenerating the QR pixels.
+   Source: 2048 x 1807. Visible region: x=587, y=238, w=874, h=970. */
+.medguide-support-crop {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 874 / 970;
+  margin: 0 auto;
+  background: #fff;
+}
+
+.medguide-support-crop img {
+  position: absolute;
+  width: 234.324942792%;
+  max-width: none;
+  height: auto;
+  left: -67.162471396%;
+  top: -24.536082474%;
+}
