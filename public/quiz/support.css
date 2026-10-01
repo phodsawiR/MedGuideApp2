@@ -23,7 +23,37 @@
 }
 
 .medguide-support-content {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 20px;
   padding: 16px;
+}
+
+.medguide-support-meme {
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.medguide-support-meme figcaption {
+  margin-bottom: 12px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.08rem;
+}
+
+.medguide-support-meme img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+@media (max-width: 620px) {
+  .medguide-support-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* Clip the original JPEG without changing or regenerating the QR pixels.
