@@ -45,7 +45,7 @@ import {
   HeartPulse,
   ListChecks,
 } from "lucide-react";
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics, logEvent } from "firebase/analytics";
 import {
   getAuth,
@@ -89,11 +89,13 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const memberAuth = getAuth(getApps().some(candidate => candidate.name === 'quiz-owner')
+  ? getApp('quiz-owner') : initializeApp(firebaseConfig, 'quiz-owner'));
 const db = getFirestore(app);
 export const analytics = typeof window !== "undefined" ? getAnalytics(app) : null;
 const appId = typeof __app_id !== "undefined" ? __app_id : "medguide-master-db";
 
-const tabFromHash = () => ({'#knowledge':'knowledge','#quiz':'quiz','#ac-usmle':'ac_usmle','#pocket-guide':'pocket_guide','#calculator':'calculator'}[window.location.hash] || 'quiz');
+const tabFromHash = () => ({'#home':'home','#knowledge':'knowledge','#quiz':'quiz','#ac-usmle':'ac_usmle','#pocket-guide':'pocket_guide','#calculator':'calculator'}[window.location.hash] || 'home');
 
 export default function MedGuideApp() {
   const [isDarkMode, setIsDarkMode] = useState(
@@ -110,6 +112,11 @@ export default function MedGuideApp() {
     }
   }, [isDarkMode]);
   const [user, setUser] = useState(null);
+  const [osceVisible, setOsceVisible] = useState(false);
+  useEffect(() => onAuthStateChanged(memberAuth, account => {
+    setOsceVisible(Boolean(account && !account.isAnonymous && account.emailVerified
+      && account.providerData.some(provider => provider.providerId === 'google.com')));
+  }), []);
   const [zoomContent, setZoomContent] = useState(null);
   const [showAIQuiz, setShowAIQuiz] = useState(false);
   const [knowledgeBase, setKnowledgeBase] = useState([]);
@@ -222,7 +229,7 @@ export default function MedGuideApp() {
     return () => window.removeEventListener('hashchange',onHash);
   }, []);
   useEffect(() => {
-    const hash={knowledge:'#knowledge',quiz:'#quiz',ac_usmle:'#ac-usmle',pocket_guide:'#pocket-guide',calculator:'#calculator'}[activeTab];
+    const hash={home:'#home',knowledge:'#knowledge',quiz:'#quiz',ac_usmle:'#ac-usmle',pocket_guide:'#pocket-guide',calculator:'#calculator'}[activeTab];
     if(window.location.hash!==hash)window.history.replaceState(null,'',hash);
   }, [activeTab]);
   const [quizzes, setQuizzes] = useState([]);
@@ -926,6 +933,12 @@ export default function MedGuideApp() {
 
             <div className="flex flex-wrap justify-center gap-3 mt-2 mb-1">
               <button
+                onClick={() => setActiveTab('home')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${activeTab === 'home' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-600 dark:text-white' : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'}`}
+              >
+                <ListChecks size={16} /> หน้าหลัก · ฝึก MCQ
+              </button>
+              <button
                 onClick={() => setActiveTab("knowledge")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all ${
                   activeTab === "knowledge"
@@ -990,12 +1003,12 @@ export default function MedGuideApp() {
               >
                 <ListChecks size={16} /> รวม MED + PED
               </a>
-              <a
+              {osceVisible && <a
                 href={`${process.env.PUBLIC_URL}/osce-med/`}
                 className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
               >
                 <ImageIcon size={16} /> OSCE อายุรฯ · Flashcards
-              </a>
+              </a>}
             </div>
             
             {(activeTab === 'knowledge' || activeTab === 'quiz') && (
@@ -1249,6 +1262,32 @@ export default function MedGuideApp() {
         )}
 
         <div className="max-w-3xl mx-auto px-4 py-8 md:px-8">
+          {activeTab === 'home' && (
+            <section aria-labelledby="practice-home-title" className="space-y-6">
+              <div className="text-center">
+                <h2 id="practice-home-title" className="text-2xl font-bold text-gray-800 dark:text-gray-100">เลือกคลังข้อสอบที่อยากฝึก</h2>
+                <p className="mt-2 text-gray-500 dark:text-gray-400">เลือกบท สุ่มข้อสอบ และทวนข้อที่เคยตอบผิด</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <a href={`${process.env.PUBLIC_URL}/quiz/practice.html`} className="block rounded-2xl border border-blue-200 bg-blue-50 p-8 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 dark:hover:bg-blue-900 transition-colors">
+                  <Stethoscope size={32} className="text-blue-600 mb-4" />
+                  <h3 className="text-2xl font-bold text-blue-800 dark:text-blue-200">MCQ MED</h3>
+                  <p className="mt-2 text-blue-700 dark:text-blue-300">อายุรศาสตร์</p>
+                  <p className="mt-6 font-semibold text-blue-800 dark:text-blue-200">เริ่มฝึก →</p>
+                </a>
+                <a href={`${process.env.PUBLIC_URL}/quiz/practice_ped.html`} className="block rounded-2xl border border-teal-200 bg-teal-50 p-8 hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-950 dark:hover:bg-teal-900 transition-colors">
+                  <Baby size={32} className="text-teal-600 mb-4" />
+                  <h3 className="text-2xl font-bold text-teal-800 dark:text-teal-200">MCQ PED</h3>
+                  <p className="mt-2 text-teal-700 dark:text-teal-300">กุมารเวชศาสตร์</p>
+                  <p className="mt-6 font-semibold text-teal-800 dark:text-teal-200">เริ่มฝึก →</p>
+                </a>
+              </div>
+              <div className="flex flex-wrap justify-center gap-4 text-sm font-semibold">
+                <a href={`${process.env.PUBLIC_URL}/quiz/practice_all.html`} className="text-indigo-600 dark:text-indigo-300 hover:underline">ฝึก MED + PED รวมกัน →</a>
+                {osceVisible && <a href={`${process.env.PUBLIC_URL}/osce-med/`} className="text-indigo-600 dark:text-indigo-300 hover:underline">OSCE Flashcards →</a>}
+              </div>
+            </section>
+          )}
           {activeTab === "knowledge" && (
             <div className="animate-in fade-in duration-300">
               <div className="mb-6 flex items-center justify-between">

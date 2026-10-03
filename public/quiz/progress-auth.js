@@ -41,6 +41,8 @@ async function changeEmail(email,active){
 form.onsubmit=e=>{e.preventDefault();changeEmail(emailInput.value,true);};admin.ontoggle=()=>{if(admin.open)loadList();};
 async function configureAccount(user){
   const token=++authGeneration,google=isGoogle(user);
+  const osceLink=document.getElementById('osceMemberLink');
+  if(osceLink)osceLink.classList.toggle('hide',!google);
   progress.setAdapter(null);sync.disabled=true;listGeneration++;list.replaceChildren();emailInput.value='';adminMessage.textContent='';admin.hidden=!isAdmin(user);if(admin.hidden)admin.open=false;
   if(isAdmin(user)&&window.location?.hash==='#practiceSyncAdmin'){admin.open=true;admin.scrollIntoView({block:'start'});}
   button.textContent=google?'ออกจากระบบ ('+(user.displayName||'Google')+')':'เข้าสู่ระบบด้วย Google';
