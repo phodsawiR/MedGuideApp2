@@ -93,6 +93,8 @@ const db = getFirestore(app);
 export const analytics = typeof window !== "undefined" ? getAnalytics(app) : null;
 const appId = typeof __app_id !== "undefined" ? __app_id : "medguide-master-db";
 
+const tabFromHash = () => ({'#knowledge':'knowledge','#quiz':'quiz','#ac-usmle':'ac_usmle','#pocket-guide':'pocket_guide','#calculator':'calculator'}[window.location.hash] || 'quiz');
+
 export default function MedGuideApp() {
   const [isDarkMode, setIsDarkMode] = useState(
     () => localStorage.getItem("theme") === "dark"
@@ -213,10 +215,15 @@ export default function MedGuideApp() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showHelp, setShowHelp] = React.useState(false);
-  const [activeTab, setActiveTab] = useState(() => window.location.hash === "#ac-usmle" ? "ac_usmle" : "knowledge");
+  const [activeTab, setActiveTab] = useState(tabFromHash);
   useEffect(() => {
-    if (activeTab === "ac_usmle") window.history.replaceState(null, "", "#ac-usmle");
-    else if (window.location.hash === "#ac-usmle") window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    const onHash = () => setActiveTab(tabFromHash());
+    window.addEventListener('hashchange',onHash);
+    return () => window.removeEventListener('hashchange',onHash);
+  }, []);
+  useEffect(() => {
+    const hash={knowledge:'#knowledge',quiz:'#quiz',ac_usmle:'#ac-usmle',pocket_guide:'#pocket-guide',calculator:'#calculator'}[activeTab];
+    if(window.location.hash!==hash)window.history.replaceState(null,'',hash);
   }, [activeTab]);
   const [quizzes, setQuizzes] = useState([]);
   const [previewAnswers, setPreviewAnswers] = useState({});
@@ -228,6 +235,7 @@ export default function MedGuideApp() {
   useEffect(() => {
     if (typeof db === "undefined" || !db) return;
 
+    if (activeTab !== "quiz") return;
     const q = query(collection(db, "quizzes"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const quizList = snapshot.docs.map((doc) => ({
@@ -237,7 +245,7 @@ export default function MedGuideApp() {
       setQuizzes(quizList);
     });
     return () => unsubscribe();
-  }, []);
+  }, [activeTab]);
   const [newTopic, setNewTopic] = useState({
     system: "Nervous System",
     topic: "",
@@ -292,7 +300,7 @@ export default function MedGuideApp() {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || activeTab !== "knowledge") return;
     const topicsRef = collection(
       db,
       "artifacts",
@@ -311,10 +319,11 @@ export default function MedGuideApp() {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, [user]);
+  }, [user, activeTab]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || activeTab !== "knowledge") return;
+    let cancelled = false;
 
     const syncAndCleanup = async () => {
       const topicsRef = collection(
@@ -326,6 +335,7 @@ export default function MedGuideApp() {
         "topics"
       );
       const snapshot = await getDocs(topicsRef);
+      if (cancelled) return;
       const seen = new Set();
       const duplicatesToDelete = [];
       const existingTopics = new Set();
@@ -384,10 +394,11 @@ export default function MedGuideApp() {
       }
     };
     syncAndCleanup();
-  }, [user]);
+    return () => { cancelled = true; };
+  }, [user, activeTab]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || activeTab !== "knowledge") return;
     const progressRef = doc(
       db,
       "artifacts",
@@ -402,7 +413,7 @@ export default function MedGuideApp() {
       else setReadStatus({});
     });
     return () => unsubscribe();
-  }, [user]);
+  }, [user, activeTab]);
 
   const toggleReadStatus = async (itemId) => {
     if (!user) return;
@@ -960,28 +971,21 @@ export default function MedGuideApp() {
               >
                 <ListChecks size={16} /> เด็ก · AC USMLE (206 ข้อ)
               </button>
-              {/* Standalone drill pages under public/ — plain HTML, not React
-                  views, so each opens in its own tab rather than swapping activeTab. */}
+              {/* Navigate to the standalone drill so other page listeners stop. */}
               <a
                 href={`${process.env.PUBLIC_URL}/quiz/practice.html`}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
               >
                 <ListChecks size={16} /> ฝึก MCQ อายุรฯ
               </a>
               <a
                 href={`${process.env.PUBLIC_URL}/quiz/practice_ped.html`}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
               >
                 <ListChecks size={16} /> ฝึก MCQ เด็ก
               </a>
               <a
                 href={`${process.env.PUBLIC_URL}/quiz/practice_all.html`}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
               >
                 <ListChecks size={16} /> รวม MED + PED
