@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, Trash2, Pencil, Save, X, RefreshCw, CheckCircle, AlertCircle, ChevronUp, ChevronDown } from 'lucide-react';
+import { Search, Filter, Trash2, Pencil, Save, X, RefreshCw, CheckCircle, Check, AlertCircle, ChevronUp, ChevronDown, Brain } from 'lucide-react';
 import { deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { renderMath, getImageUrl } from '../utils/textUtils';
 // --- 📚 Quiz Bank Component (Interactive V2) ---
