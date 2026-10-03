@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="th">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="robots" content="noindex,nofollow"><title>OSCE MED · MedGuide</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header class="site-header"><div class="brand"><span class="brand-icon" aria-hidden="true">✚</span><div><strong>OSCE MED</strong><span>ซ้อมรายสถานี · ตอบก่อนเปิดเฉลย</span></div></div><nav aria-label="บัญชี"><a href="/">MedGuide</a><span id="account" hidden></span><button id="logout" class="text-button" hidden>ออกจากบัญชี</button></nav></header>
+<main>
+<section class="intro"><p class="eyebrow">MED OSCE PRACTICE</p><h1>ฝึกทีละสถานี ทวนตามวันที่นัดไว้</h1><p id="deck-description">เข้าสู่บัญชี Google ที่ได้รับสิทธิ์เพื่อเริ่มซ้อม</p></section>
+<section id="auth-panel" class="auth-panel"><h2 id="auth-title">เข้าสู่บัญชีเพื่อเริ่มซ้อม</h2><p id="auth-message" role="status">ชุดนี้เปิดให้ Premruj ใช้ ความคืบหน้าจะเก็บไว้ในบัญชี</p><button id="login" class="primary-button">เข้าสู่ระบบด้วย Google</button><button id="retry" class="secondary-button" hidden>ลองโหลดอีกครั้ง</button></section>
+<div id="study" hidden>
+<section class="study-summary" aria-label="ความคืบหน้า"><div><strong id="due-count">0</strong><span>ถึงเวลาทวน</span></div><div><strong id="new-count">0</strong><span>ยังไม่เคยทวน</span></div><div><strong id="review-count">0</strong><span>ทวนแล้ว</span></div><p id="sync-status" role="status">กำลังอ่านความคืบหน้า</p></section>
+<section class="practice-bar" aria-label="เลือกสถานีและจับเวลา">
+<label class="filter-label">บท<select id="chapter"><option value="all">ทุกบท</option></select></label>
+<label class="filter-label">หมวดสถานี<select id="category"><option value="all">ทุกหมวด</option></select></label>
+<label class="filter-label">โหมด<select id="mode"><option value="due">ถึงเวลาทวน + การ์ดใหม่</option><option value="all">ซ้อมทุกการ์ด</option><option value="review">ทวนการ์ดที่เคยทำ</option><option value="new">การ์ดใหม่</option></select></label>
+<label class="filter-label search-label">ค้นหา<input id="search" type="search" placeholder="เช่น thyroid, AC77, hematuria"></label><button id="shuffle" class="secondary-button">⇄ สลับลำดับ</button>
+<div class="timer-group"><div class="timer-display"><span class="micro-label">เวลาซ้อม</span><output id="timer">03:00</output></div><label class="duration-label"><span class="sr-only">เวลาซ้อมต่อสถานี</span><select id="duration"><option value="60">1 นาที</option><option value="120">2 นาที</option><option value="180" selected>3 นาที</option><option value="300">5 นาที</option></select></label><button id="timer-start" class="small-button">เริ่ม</button><button id="timer-reset" class="icon-button" aria-label="เริ่มเวลาซ้อมใหม่">↺</button></div>
+</section>
+<section id="station" class="station-card" aria-labelledby="station-title" hidden>
+<div class="station-head"><div><p class="eyebrow" id="station-category">OSCE</p><h2 id="station-title">สถานี</h2></div><div class="station-progress"><span id="progress"></span><small id="rated-progress"></small></div></div>
+<div class="station-layout">
+<div class="image-panel"><button id="image-open" class="image-open" aria-label="ขยายรูปสถานี" disabled><img id="station-image" alt="รูปประกอบสถานี OSCE" draggable="false" hidden><span class="zoom-hint">⊕ แตะรูปเพื่อขยาย</span></button><p id="image-error" class="image-error" hidden></p><p id="image-loading">กำลังเปิดรูป…</p></div>
+<div class="question-panel"><p class="micro-label">โจทย์</p><p id="prompt" class="prompt"></p><h3>สิ่งที่ต้องตอบ</h3><ol id="tasks" class="tasks"></ol><label for="response" class="response-label">คำตอบของคุณ <span>พิมพ์ไว้ หรือพูดตอบก็ได้</span></label><textarea id="response" rows="5" maxlength="12000" placeholder="Findings → diagnosis → คำถามต่อของสถานี"></textarea><p id="storage-note" class="storage-note"></p></div>
+</div>
+<div class="answer-action"><button id="reveal" class="primary-button" aria-expanded="false" aria-controls="answer">เปิดคำตอบ</button><span class="keyboard-hint">Space เปิด / ซ่อน · ← → เปลี่ยนสถานี · 1–4 ประเมินคำตอบ</span></div>
+<section id="answer" class="answer-panel" hidden><div class="answer-heading"><span class="eyebrow">REVIEW</span><h3>เทียบกับคำตอบของคุณ</h3></div><div id="answer-content" class="answer-content"></div>
+<div class="rating"><p>อยากทวนอีกเมื่อไร? <small>ประเมินด้วยตัวเอง ระบบจะจัดวันทวนครั้งต่อไป</small></p><div class="rating-buttons"><button data-rating="again" disabled>1 · Again<small></small></button><button data-rating="hard" disabled>2 · Hard<small></small></button><button data-rating="good" disabled>3 · Good<small></small></button><button data-rating="easy" disabled>4 · Easy<small></small></button></div><p id="rating-status" class="rating-status" aria-live="polite"></p></div><details class="source-details"><summary>ดูที่มารูปและคำตอบ</summary><div id="source-content"></div></details></section>
+<div class="station-nav"><button id="previous" class="secondary-button">← ก่อนหน้า</button><button id="next" class="secondary-button">ถัดไป →</button></div>
+</section>
+<section id="empty" class="empty-state" hidden><h2 id="empty-title">จบรอบนี้แล้ว</h2><p id="empty-message"></p><div class="empty-actions"><button id="refresh-queue" class="secondary-button">ดูการ์ดที่ถึงเวลาทวน</button><button id="review-all" class="primary-button">ซ้อมทุกการ์ด</button></div></section>
+<footer>คำถามจากข้อสอบที่รุ่นพี่รวบรวมและสรุปประกอบ · แนวตอบเรียบเรียงเพื่อฝึก ไม่ใช่ official key<br>ระบบนัดทวนใช้ Again / Hard / Good / Easy และระยะห่างตามครั้งที่ทวน · ใช้กฎนัดทวนของชุดนี้</footer>
+</div></main>
+<dialog id="image-dialog" aria-label="รูปสถานีขนาดใหญ่"><div class="dialog-toolbar"><span id="dialog-title">รูปสถานี</span><button id="image-close" class="icon-button" aria-label="ปิดรูปขนาดใหญ่">✕</button></div><div class="dialog-image"><img id="zoom-image" alt="รูปประกอบสถานี OSCE ขนาดใหญ่"></div><p class="dialog-note">เลื่อนดูรูปได้ · กด Escape เพื่อปิด</p></dialog>
+<div id="announcement" class="sr-only" role="status" aria-live="polite"></div><noscript><p class="empty-state">กรุณาเปิด JavaScript เพื่อใช้งานสถานีฝึก</p></noscript><script type="module" src="app.js"></script>
+</body></html>
+
+

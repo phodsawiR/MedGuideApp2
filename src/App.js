@@ -45,7 +45,7 @@ import {
   HeartPulse,
   ListChecks,
 } from "lucide-react";
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics, logEvent } from "firebase/analytics";
 import {
   getAuth,
@@ -89,6 +89,8 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const osceAuth = getAuth(getApps().some(candidate => candidate.name === 'quiz-owner')
+  ? getApp('quiz-owner') : initializeApp(firebaseConfig, 'quiz-owner'));
 const db = getFirestore(app);
 export const analytics = typeof window !== "undefined" ? getAnalytics(app) : null;
 const appId = typeof __app_id !== "undefined" ? __app_id : "medguide-master-db";
@@ -110,6 +112,12 @@ export default function MedGuideApp() {
     }
   }, [isDarkMode]);
   const [user, setUser] = useState(null);
+  const [osceVisible, setOsceVisible] = useState(false);
+  useEffect(() => onAuthStateChanged(osceAuth, account => {
+    setOsceVisible(Boolean(account?.emailVerified
+      && account.email?.toLowerCase() === 'royalrarityruj@gmail.com'
+      && account.providerData.some(provider => provider.providerId === 'google.com')));
+  }), []);
   const [zoomContent, setZoomContent] = useState(null);
   const [showAIQuiz, setShowAIQuiz] = useState(false);
   const [knowledgeBase, setKnowledgeBase] = useState([]);
@@ -990,6 +998,12 @@ export default function MedGuideApp() {
               >
                 <ListChecks size={16} /> รวม MED + PED
               </a>
+              {osceVisible && <a
+                href={`${process.env.PUBLIC_URL}/osce-med/`}
+                className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+              >
+                <ImageIcon size={16} /> OSCE อายุรฯ · Flashcards
+              </a>}
             </div>
             
             {(activeTab === 'knowledge' || activeTab === 'quiz') && (

@@ -17,7 +17,43 @@ service cloud.firestore {
     // Preserve existing access for other data; never bypass quiz owner rules.
     match /{topCollection}/{document=**} {
       allow read, write: if topCollection != 'quizAnswerCorrections'
-        && topCollection != 'practiceProgress' && topCollection != 'practiceSyncAllowlist';
+        && topCollection != 'practiceProgress' && topCollection != 'practiceSyncAllowlist'
+        && topCollection != 'osceContent' && topCollection != 'osceImages'
+        && topCollection != 'osceProgress';
+    }
+    function osceAllowed() {
+      return verifiedGoogle() && request.auth.token.email.lower() == 'royalrarityruj@gmail.com';
+    }
+    // OSCE is limited to the approved account; progress belongs to each UID.
+    match /osceContent/{document} {
+      allow read: if osceAllowed();
+      allow create, update: if syncAdmin();
+      allow delete: if false;
+    }
+    match /osceImages/{document=**} {
+      allow read: if osceAllowed();
+      allow create, update: if syncAdmin();
+      allow delete: if false;
+    }
+    match /osceProgress/{uid}/cards/{cardId} {
+      function ownsOsceProgress() {
+        return osceAllowed() && request.auth.uid == uid;
+      }
+      allow read: if ownsOsceProgress();
+      allow create, update: if ownsOsceProgress()
+        && cardId.size() <= 200
+        && request.resource.data.keys().hasOnly(['v','updatedAt','clientUpdatedAt','dueAt','intervalDays','ease','reps','lapses','rating','response'])
+        && request.resource.data.v == 1
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.clientUpdatedAt is number
+        && request.resource.data.dueAt is number && request.resource.data.dueAt >= 0
+        && request.resource.data.intervalDays is number && request.resource.data.intervalDays >= 0
+        && request.resource.data.ease is number && request.resource.data.ease >= 1.3 && request.resource.data.ease <= 5
+        && request.resource.data.reps is int && request.resource.data.reps >= 0
+        && request.resource.data.lapses is int && request.resource.data.lapses >= 0
+        && request.resource.data.rating in ['', 'again','hard','good','easy']
+        && request.resource.data.response is string && request.resource.data.response.size() <= 12000;
+      allow delete: if false;
     }
     match /practiceSyncAllowlist/{email} {
       allow get: if syncAdmin() || (verifiedGoogle() && request.auth.token.email.lower() == email);

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="th">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>OSCE · จัดการชุดฝึก</title><link rel="stylesheet" href="style.css"></head>
+<body><main>
+  <a href="/">← MedGuide</a>
+  <h1>จัดการชุดฝึก OSCE</h1>
+  <p>อัปโหลดชุดฝึกที่เตรียมไว้ด้วยบัญชีผู้ดูแล</p>
+  <div class="account"><p id="account">กำลังตรวจบัญชี…</p><button id="login" type="button">เข้าสู่ระบบด้วย Google</button><button id="logout" type="button" hidden>ออกจากระบบ</button></div>
+  <section id="panel" hidden>
+    <label for="pack">เลือกไฟล์ชุดฝึก JSON</label>
+    <input id="pack" type="file" accept=".json,application/json">
+    <p id="summary">ยังไม่ได้เลือกไฟล์</p>
+    <label class="resume"><input id="resume" type="checkbox" checked> ทำต่อจากครั้งก่อน ถ้าไฟล์เดิมยังอัปโหลดไม่ครบ</label>
+    <button id="upload" type="button" disabled>อัปโหลดชุดฝึก</button>
+    <progress id="progress" max="1" value="0" aria-label="ความคืบหน้าการอัปโหลด"></progress>
+  </section>
+  <p id="status" role="status" aria-live="polite"></p>
+  <p class="hint">รูปจะอัปโหลดก่อน แล้วจึงเปลี่ยนชุดโจทย์เมื่ออัปโหลดครบ หากขาดการเชื่อมต่อ เลือกไฟล์เดิมเพื่อทำต่อได้</p>
+</main><script type="module" src="import.js"></script></body>
+</html>
