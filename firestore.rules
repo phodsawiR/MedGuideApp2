@@ -22,9 +22,9 @@ service cloud.firestore {
         && topCollection != 'osceProgress';
     }
     function osceAllowed() {
-      return verifiedGoogle() && request.auth.token.email.lower() == 'royalrarityruj@gmail.com';
+      return verifiedGoogle();
     }
-    // OSCE is limited to the approved account; progress belongs to each UID.
+    // Signed-in Google members can study; progress belongs to each UID.
     match /osceContent/{document} {
       allow read: if osceAllowed();
       allow create, update: if syncAdmin();

@@ -50,7 +50,7 @@ async function request({ jwt, url = '/api/osce', method = 'GET', handler } = {})
   return response;
 }
 
-test('only verified Google Premruj receives cards and collection', async () => {
+test('verified Google member receives cards and collection', async () => {
   const response = await request({ jwt: token() });
   assert.equal(response.statusCode, 200);
   assert.equal(JSON.parse(response.body).cards[0].answer, 'private answer');
@@ -73,16 +73,13 @@ test('guest and query-token access cannot read cards or images', async () => {
   assert.equal(calls.length, before, 'guest must not trigger any Firestore content reads');
 });
 
-test('other verified Google accounts, including owner, cannot read content or check access', async () => {
+test('all verified Google accounts can check access', async () => {
   const before = calls.length;
-  for (const email of ['phodsawi.2547@gmail.com', 'phodsawi.2547@docchula.com', 'someone@gmail.com', 'royalrarityruj@gmail.com.evil.test']) {
-    for (const url of ['/api/osce', '/api/osce?image=OSCE_MED_test.png', '/api/osce?access=1']) {
-      const response = await request({ jwt: token({ email }), url });
-      assert.equal(response.statusCode, 403);
-      assert.doesNotMatch(response.body, /private answer/);
-    }
+  for (const email of ['phodsawi.2547@gmail.com', 'phodsawi.2547@docchula.com', 'someone@gmail.com']) {
+    const response = await request({ jwt: token({ email }), url: '/api/osce?access=1' });
+    assert.equal(response.statusCode, 200);
   }
-  assert.equal(calls.length, before, 'non-Premruj requests cannot read Firestore, even with a warm cache');
+  assert.equal(calls.length, before);
 });
 
 test('access check authenticates without any private content reads', async () => {
@@ -224,8 +221,8 @@ test('warm caches reduce content reads but every request still authenticates; TT
   assert.equal(keyChecks, 2);
   assert.equal((await request({ handler, url: imageRequest.url })).statusCode, 401);
   assert.equal((await request({ ...imageRequest, jwt: token({ email_verified: false }) })).statusCode, 403);
-  assert.equal((await request({ ...imageRequest, jwt: token({ email: 'another@gmail.com' }) })).statusCode, 403);
-  assert.equal((await request({ ...imageRequest, jwt: token({ email: 'phodsawi.2547@gmail.com' }), url: '/api/osce?access=1' })).statusCode, 403);
+  assert.equal((await request({ ...imageRequest, jwt: token({ email: 'another@gmail.com' }) })).statusCode, 200);
+  assert.equal((await request({ ...imageRequest, jwt: token({ email: 'phodsawi.2547@gmail.com' }), url: '/api/osce?access=1' })).statusCode, 200);
   assert.equal(collectionReads, 1);
   assert.equal(imageReads, 1);
   time += 301;

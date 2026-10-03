@@ -3,7 +3,6 @@ import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectRes
 import { collection, doc, getDocs, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js';
 
 const DAY = 86400000;
-const ALLOWED_EMAIL = 'royalrarityruj@gmail.com';
 const $ = id => document.getElementById(id);
 const items = value => Array.isArray(value) ? value : value ? [value] : [];
 
@@ -183,15 +182,15 @@ function clearStudy() {
   $('deck-description').textContent = 'เข้าสู่บัญชี Google ที่ได้รับสิทธิ์เพื่อเริ่มซ้อม';
 }
 function denyAccess(message) {
-  generation++; clearStudy(); $('auth-title').textContent = 'ชุดนี้เปิดให้ Premruj ใช้'; $('auth-message').textContent = message;
+  generation++; clearStudy(); $('auth-title').textContent = 'เข้าสู่บัญชี Google เพื่อเริ่มซ้อม'; $('auth-message').textContent = message;
   $('login').hidden = false; $('login').textContent = 'เปลี่ยนบัญชี Google';
 }
 async function loadAccount(activeUser) {
   const activeGeneration = ++generation; clearStudy();
   $('account').hidden = !activeUser; $('logout').hidden = !activeUser; $('account').textContent = activeUser?.email || '';
-  if (!activeUser) { $('auth-title').textContent = 'เข้าสู่บัญชีเพื่อเริ่มซ้อม'; $('auth-message').textContent = 'ชุดนี้เปิดให้ Premruj ใช้ ความคืบหน้าจะเก็บไว้ในบัญชี'; $('login').hidden = false; $('login').textContent = 'เข้าสู่ระบบด้วย Google'; return; }
-  if (activeUser.email?.toLowerCase() !== ALLOWED_EMAIL || !activeUser.emailVerified || !activeUser.providerData?.some(provider => provider.providerId === 'google.com')) {
-    denyAccess('ชุดนี้เปิดให้ Premruj ใช้ กรุณาเลือกบัญชี Google ที่ได้รับสิทธิ์'); return;
+  if (!activeUser) { $('auth-title').textContent = 'เข้าสู่บัญชีเพื่อเริ่มซ้อม'; $('auth-message').textContent = 'เข้าสู่บัญชี Google เพื่อเริ่มซ้อม ความคืบหน้าจะเก็บไว้ในบัญชี'; $('login').hidden = false; $('login').textContent = 'เข้าสู่ระบบด้วย Google'; return; }
+  if (!activeUser.emailVerified || !activeUser.providerData?.some(provider => provider.providerId === 'google.com')) {
+    denyAccess('กรุณาเข้าสู่บัญชี Google ที่ยืนยันอีเมลแล้ว'); return;
   }
   $('login').hidden = true; $('auth-title').textContent = 'กำลังเปิดชุด OSCE'; $('auth-message').textContent = 'กำลังอ่านการ์ดและความคืบหน้าจากบัญชี…';
   try {

@@ -3,7 +3,6 @@
 const crypto = require('node:crypto');
 
 const PROJECT = 'medguide-34566';
-const ALLOWED_EMAIL = 'royalrarityruj@gmail.com';
 const CERTS_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
 const IMAGE_NAME = /^[A-Za-z0-9_-]+\.(?:png|jpe?g)$/i;
 const FIRESTORE_URL = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`;
@@ -87,7 +86,7 @@ async function verifyToken(token, getPublicKey, nowSeconds) {
         !Number.isInteger(claims.auth_time) || claims.auth_time < 0 || claims.auth_time > nowSeconds ||
         claims.auth_time > claims.iat || claims.exp <= claims.iat) throw new AccessError(401);
     if (claims.email_verified !== true || typeof claims.email !== 'string' ||
-        claims.email.toLowerCase() !== ALLOWED_EMAIL ||
+        !claims.email.trim() ||
         claims.firebase?.sign_in_provider !== 'google.com') throw new AccessError(403);
     return claims;
   } catch (error) {
@@ -160,7 +159,7 @@ function createHandler({
   now = () => Math.floor(Date.now() / 1000),
 } = {}) {
   // Cache only successfully loaded content. Every request verifies its own
-  // ID token and the exact Premruj email before accessing this cache.
+  // ID token and verified Google membership before accessing this cache.
   let collectionCache;
   let collectionPending;
   const imageCache = new Map();
