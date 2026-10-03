@@ -1,5 +1,5 @@
 import {auth, db} from '../quiz/firebase-client.js';
-import {GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut} from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js';
+import {GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut} from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js';
 import {doc, writeBatch} from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js';
 
 const OWNER = 'phodsawi.2547@gmail.com';
@@ -76,18 +76,12 @@ $('login').addEventListener('click', async () => {
   try { await signInWithPopup(auth, new GoogleAuthProvider()); }
   catch { status('เข้าสู่ระบบไม่สำเร็จ กรุณาลองอีกครั้ง', true); }
 });
-$('login-redirect').addEventListener('click', async () => {
-  try { await signInWithRedirect(auth, new GoogleAuthProvider()); }
-  catch { status('เข้าสู่ระบบไม่สำเร็จ กรุณาลองอีกครั้ง', true); }
-});
-getRedirectResult(auth).catch(() => status('เข้าสู่ระบบไม่สำเร็จ กรุณาลองอีกครั้ง', true));
 $('logout').addEventListener('click', () => signOut(auth).catch(() => status('ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง', true)));
 onAuthStateChanged(auth, user => {
   ownerUid = isOwner(user) ? user.uid : '';
   $('account').textContent = user?.email || 'ยังไม่ได้เข้าสู่ระบบ';
   $('logout').hidden = !user;
   $('login').hidden = !!ownerUid;
-  $('login-redirect').hidden = !!ownerUid;
   $('panel').hidden = !ownerUid;
   if (!ownerUid) {
     pack = null; checkpointKey = ''; selection++;
