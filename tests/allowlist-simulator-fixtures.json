@@ -1,0 +1,19 @@
+{
+  "scope": "Local emulator/playground fixtures only; public practice stays available. These are not production writes.",
+  "bank": "caseflow_mcq_practice_v1",
+  "memberDocuments": {
+    "practiceSyncAllowlist/bossboss0204@gmail.com": {"active": true, "updatedAt": "serverTimestamp()", "updatedBy": "existing-owner-uid"},
+    "practiceSyncAllowlist/royalrarityruj@gmail.com": {"active": true, "updatedAt": "serverTimestamp()", "updatedBy": "existing-owner-uid"}
+  },
+  "progressDocument": {"path": "practiceProgress/boss-user-uid/banks/caseflow_mcq_practice_v1", "data": {"v": 1, "entries": {}, "reset": null, "settings": null, "resume": null}},
+  "cases": [
+    {"name": "listed verified owner of progress", "uid": "boss-user-uid", "email": "bossboss0204@gmail.com", "email_verified": true, "provider": "google.com", "progressGet": "allow", "progressWrite": "allow", "listMembership": "deny", "membershipWrite": "deny"},
+    {"name": "other listed account", "uid": "royal-user-uid", "email": "royalrarityruj@gmail.com", "email_verified": true, "provider": "google.com", "progressGet": "deny", "progressWrite": "deny", "listMembership": "deny", "membershipWrite": "deny"},
+    {"name": "unlisted Google user", "uid": "unlisted-user", "email": "unlisted@example.com", "email_verified": true, "provider": "google.com", "progressGet": "deny", "progressWrite": "deny", "listMembership": "deny", "membershipWrite": "deny"},
+    {"name": "listed but unverified", "uid": "boss-user-uid", "email": "bossboss0204@gmail.com", "email_verified": false, "provider": "google.com", "progressGet": "deny", "progressWrite": "deny"},
+    {"name": "listed email with other provider", "uid": "boss-user-uid", "email": "bossboss0204@gmail.com", "email_verified": true, "provider": "password", "progressGet": "deny", "progressWrite": "deny"},
+    {"name": "anonymous guest", "uid": null, "progressGet": "deny", "progressWrite": "deny", "publicPractice": "available with local progress"},
+    {"name": "existing owner administrator", "uid": "existing-owner-uid", "email": "phodsawi.2547@gmail.com", "email_verified": true, "provider": "google.com", "listMembership": "allow", "membershipWrite": "allow", "membershipDelete": "deny", "ownProgressWithoutOwnMembership": "deny"},
+    {"name": "revoked listed user", "uid": "boss-user-uid", "email": "bossboss0204@gmail.com", "email_verified": true, "provider": "google.com", "membershipActive": false, "progressGet": "deny", "progressWrite": "deny", "publicPractice": "available with local progress"}
+  ]
+}

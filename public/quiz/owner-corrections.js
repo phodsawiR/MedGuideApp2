@@ -1,11 +1,11 @@
+import {auth,db} from './firebase-client.js';
 // Public Firebase config identifies the project; Firestore rules enforce ownership.
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js';
 import {getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged} from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js';
 import {getFirestore, collection, doc, getDoc, onSnapshot, runTransaction, serverTimestamp} from 'https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js';
 
 const OWNER = 'phodsawi.2547@gmail.com';
-const app = initializeApp({apiKey:'AIzaSyA1PauDwTDzJ4UfeWjlIBU9IZqL6r67WvI',authDomain:'medguide-34566.firebaseapp.com',projectId:'medguide-34566'}, 'quiz-owner');
-const auth = getAuth(app), db = getFirestore(app);
+
 const fixes = new Map();
 let owner = false, ready = false;
 const notify = () => window.dispatchEvent(new Event('quiz-owner-change'));
@@ -24,7 +24,7 @@ button.onclick = async () => {
     if (owner) { await signOut(auth); return; }
     const provider = new GoogleAuthProvider(); provider.setCustomParameters({prompt:'select_account'});
     const result = await signInWithPopup(auth,provider);
-    if(result.user.email !== OWNER || !result.user.emailVerified) { await signOut(auth); alert('บัญชีนี้ไม่มีสิทธิ์แก้เฉลย'); }
+    if(result.user.email !== OWNER || !result.user.emailVerified) { alert('บัญชีนี้ไม่มีสิทธิ์แก้เฉลย'); }
   } catch(e) { alert('ยังเข้าสู่ระบบไม่ได้: '+(e.code || e.message)); }
 };
 onAuthStateChanged(auth, user => {

@@ -6,6 +6,10 @@
 <title>MED MCQ Practice — MedGuide</title>
 <link rel="stylesheet" href="support.css">
 <script src="support.js" defer></script>
+<script src="progress-config.js"></script>
+<script src="progress-core.js"></script>
+<script src="practice-progress.js"></script>
+<script type="module">import('./progress-auth.js').catch(()=>{document.getElementById('practiceLogin').disabled=true;document.getElementById('practiceStatus').textContent='เชื่อมต่อ Google ไม่ได้ · ฝึกและบันทึกในเครื่องได้';});</script>
 <style>
   :root {
     --bg: #f6f7f9;
@@ -166,6 +170,12 @@
     <a class="button" href="practice_ped.html">👶 ไปคลัง PED</a>
     <a class="button" href="practice_all.html">🔀 รวม MED + PED</a>
     <button id="btnSetup">⚙️ ตั้งค่า</button>
+    <button id="btnTopics">ความคืบหน้าแต่ละเรื่อง</button>
+    <button id="btnSaved">ข้อที่บันทึกไว้</button>
+    <button id="btnResume" class="hide">ทำชุดเดิมต่อ</button>
+    <button id="practiceLogin">เข้าสู่ระบบด้วย Google</button>
+    <button id="practiceSync" disabled>ซิงก์</button>
+    <span class="sub" id="practiceStatus" role="status">บันทึกในเครื่อง · ฝึกได้โดยไม่ต้องเข้าสู่ระบบ</span>
     <button id="btnDash">📊 สรุป</button>
   </div>
 
@@ -202,6 +212,12 @@
     <div class="keyhint">คีย์ลัด — <kbd>1</kbd>…<kbd>5</kbd> เลือกข้อ · <kbd>Enter</kbd> ข้อถัดไป · <kbd>F</kbd> ติดดาว · <kbd>S</kbd> ข้าม</div>
   </div>
 
+  <div id="topics" class="card hide"><h2 style="font-size:1.1rem">ความคืบหน้าแต่ละเรื่อง</h2><p class="sub">นับข้อที่ตอบแล้วไม่ซ้ำ การเปิดดูหรือข้ามไม่นับ</p><div id="topicList"></div></div>
+  <div id="saved" class="card hide">
+    <h2 style="font-size:1.1rem">ข้อที่บันทึกไว้</h2>
+    <div class="row"><label>ดู <select id="savedFilter"><option value="all">ทั้งหมด</option><option value="star">ติดดาว</option><option value="forgotten">ลืมบ่อย</option></select></label></div>
+    <p class="sub">ติดดาวและลืมบ่อยแยกกัน กดรหัสข้อเพื่อเปิดโจทย์</p><div id="savedList"></div>
+  </div>
   <!-- ============ QUIZ ============ -->
   <div id="quiz" class="hide">
     <div class="card">
@@ -211,6 +227,7 @@
       <div id="feedback"></div>
       <div class="row" style="margin-top:16px">
         <button class="primary" id="btnNext">ข้อถัดไป →</button>
+        <button id="btnForget" aria-pressed="false">ลืมบ่อย</button>
         <button id="btnStar">☆ ลืมบ่อย</button>
         <button id="btnSkip">ข้าม</button>
         <button id="btnFix">✏️ แก้เฉลย</button>
@@ -321,7 +338,9 @@
   if (retired.length) save();
 
   function save() {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); } catch (e) {}
+    if (restoring) return;
+    if (window.practiceProgress) window.practiceProgress.save(store);
+    else try { localStorage.setItem(STORAGE_KEY, JSON.stringify(store)); } catch (e) {}
   }
   function stat(id) {
     if (!store.stats[id]) {
@@ -370,6 +389,7 @@
   // ---------- filter state ----------
   var LETTERS = ["A", "B", "C", "D", "E"];
   var MODES = [
+    { key: "forgotten", label: "ลืมบ่อย" },
     { key: "all",    label: "สุ่มทั้งคลัง" },
     { key: "star",   label: "⭐ เฉพาะข้อที่ลืมบ่อย" },
     { key: "wrong",  label: "เฉพาะข้อที่เคยตอบผิด" },
@@ -439,6 +459,7 @@
     if (cb.noRecon.checked && q.flags.indexOf("reconstructed") >= 0) return false;
     if (cb.noBroken.checked && q.flags.indexOf("incomplete_choices") >= 0) return false;
     var s = store.stats[q.id];
+    if (sel.mode === "forgotten" && !(s && s.forgotten)) return false;
     if (sel.mode === "star" && !isStarred(q.id)) return false;
     if (sel.mode === "wrong" && !(s && s.wrong > 0)) return false;
     if (sel.mode === "unseen" && s && s.seen > 0) return false;
@@ -499,6 +520,8 @@
 
   // ---------- views ----------
   function show(view) {
+    document.getElementById("topics").classList.toggle("hide",view!=="topics");
+    document.getElementById("saved").classList.toggle("hide", view !== "saved");
     els.setup.classList.toggle("hide", view !== "setup");
     els.quiz.classList.toggle("hide", view !== "quiz");
     els.dash.classList.toggle("hide", view !== "dash");
@@ -618,6 +641,8 @@
   function renderQuestion() {
     var q = current;
     answered = false;
+    document.getElementById("btnForget").textContent = store.stats[q.id]?.forgotten ? "ลืมบ่อย ✓" : "ลืมบ่อย";
+    document.getElementById("btnForget").setAttribute("aria-pressed", !!store.stats[q.id]?.forgotten);
     var s = store.stats[q.id];
 
     var badges = [];
@@ -670,12 +695,13 @@
 
     els.feedback.innerHTML = "";
     closeFixPanel();
-    document.getElementById("btnStar").textContent = isStarred(q.id) ? "★ ติดดาวแล้ว" : "☆ ลืมบ่อย";
+    document.getElementById("btnStar").textContent = isStarred(q.id) ? "★ บันทึกแล้ว" : "☆ บันทึกไว้";
     var obs = document.getElementById("btnObs");
     obs.classList.toggle("hide", !q.topic);
     if (q.topic) obs.onclick = function () { window.open(obsUrl(q.topic), "_blank"); };
     renderStatbar();
     window.scrollTo(0, 0);
+    rememberRound();
   }
 
   function answer(letter) {
@@ -695,6 +721,7 @@
     if (ok) { session.correct++; session.streak++; session.best = Math.max(session.best, session.streak); }
     else session.streak = 0;
     lastAttempt = { id: q.id, letter: letter, ok: ok, autoSet: (s.wrong >= 2 && !s.star) };
+    store.resume = roundSnapshot(letter);
     save();
 
     els.choices.classList.add("revealed");
@@ -758,7 +785,7 @@
     }
 
     els.feedback.innerHTML = html;
-    document.getElementById("btnStar").textContent = isStarred(q.id) ? "★ ติดดาวแล้ว" : "☆ ลืมบ่อย";
+    document.getElementById("btnStar").textContent = isStarred(q.id) ? "★ บันทึกแล้ว" : "☆ บันทึกไว้";
     renderQuestionBadgeStar();   // auto-leech may have just starred this one
     renderStatbar();
   }
@@ -900,6 +927,10 @@
   }
 
   function finishRound() {
+    current = null; store.resume = null; save();
+    document.getElementById("btnResume").classList.add("hide");
+    document.getElementById("btnForget").disabled = true;
+    document.getElementById("btnStar").disabled = true;
     show("quiz");
     els.qmeta.innerHTML = "";
     els.qtext.innerHTML = "";
@@ -929,6 +960,9 @@
   }
 
   function startRound() {
+    document.getElementById("btnForget").disabled = false;
+    document.getElementById("btnStar").disabled = false;
+    document.getElementById("btnNext").onclick = next;
     queue = buildQueue();
     if (!queue.length) return;
     qIndex = -1;
@@ -1023,7 +1057,7 @@
     s.star = on ? 0 : 1;
     if (on) s.auto = 0;
     save();
-    document.getElementById("btnStar").textContent = isStarred(current.id) ? "★ ติดดาวแล้ว" : "☆ ลืมบ่อย";
+    document.getElementById("btnStar").textContent = isStarred(current.id) ? "★ บันทึกแล้ว" : "☆ บันทึกไว้";
     renderQuestionBadgeStar();
     renderStatbar();
   };
@@ -1069,6 +1103,7 @@
           a.wrong = Math.max(a.wrong, b.wrong || 0);
           a.star = a.star || b.star || 0;
           a.auto = a.auto || b.auto || 0;
+          a.forgotten = a.forgotten || b.forgotten || 0;
           if ((b.last || 0) > (a.last || 0)) { a.last = b.last; a.lastOk = b.lastOk; }
         });
         if (incoming.totals) {
@@ -1123,6 +1158,66 @@
     if (k === "s") { e.preventDefault(); next(); }
   });
 
+  function roundSnapshot(letter) {
+    return {ids:queue.map(q=>q.id), index:qIndex, session:session, order:shownOrder, letter:letter||null};
+  }
+  function rememberRound() { if(current) {store.resume=roundSnapshot(null);save();document.getElementById("btnResume").classList.remove("hide");} }
+  function renderTopics() {
+    const groups=new Map();
+    ALL.forEach(q=>{
+      const name=(q.subject?q.subject+' · ':'')+(q.topic || q.systems.join(' / ') || 'ยังไม่ระบุเรื่อง');
+      if(!groups.has(name))groups.set(name,{total:0,done:0});
+      const g=groups.get(name);g.total++;if(store.stats[q.id]?.seen>0)g.done++;
+    });
+    const list=document.getElementById('topicList');list.replaceChildren();
+    [...groups].sort((a,b)=>a[0].localeCompare(b[0],'th')).forEach(([name,g])=>{
+      const row=document.createElement('div');row.className='box';
+      const label=document.createElement('div');label.textContent=name+' — ทำแล้ว '+g.done+'/'+g.total+' ข้อ ('+Math.round(g.done/g.total*100)+'%)';
+      const bar=document.createElement('progress');bar.max=g.total;bar.value=g.done;bar.setAttribute('aria-label',name);bar.style.width='100%';row.append(label,bar);list.append(row);
+    });
+  }
+  document.getElementById('btnTopics').onclick=()=>{renderTopics();show('topics');};
+  function renderSaved() {
+    const filter=document.getElementById('savedFilter').value, list=document.getElementById('savedList');list.replaceChildren();
+    const cards=ALL.filter(q=>{const st=store.stats[q.id]||{};return filter==='forgotten'?st.forgotten:filter==='star'?isStarred(q.id):isStarred(q.id)||st.forgotten;});
+    if(!cards.length){list.textContent='ยังไม่มีข้อที่บันทึกไว้ กดติดดาวหรือลืมบ่อยที่โจทย์เพื่อเก็บไว้ทบทวน';return;}
+    cards.forEach(q=>{
+      const row=document.createElement('div');row.className='box';
+      const open=document.createElement('button');open.textContent=q.id+' — '+q.question.replace(/<[^>]*>/g,'').slice(0,140);open.style.cssText='text-align:left;width:100%;overflow-wrap:anywhere';
+      open.onclick=()=>{queue=[q];qIndex=0;current=q;session={seen:0,correct:0,streak:0,best:0};document.getElementById('btnNext').onclick=next;document.getElementById('btnForget').disabled=false;document.getElementById('btnStar').disabled=false;show('quiz');renderQuestion();};row.append(open);
+      const st=store.stats[q.id]||{};
+      if(isStarred(q.id)){const b=document.createElement('button');b.textContent='ลบดาว';b.onclick=()=>{st.star=0;st.auto=0;save();renderSaved();};row.append(b);}
+      if(st.forgotten){const b=document.createElement('button');b.textContent='ลบลืมบ่อย';b.onclick=()=>{st.forgotten=0;save();renderSaved();};row.append(b);}
+      list.append(row);
+    });
+  }
+  document.getElementById('btnSaved').onclick=()=>{renderSaved();show('saved');};
+  document.getElementById('savedFilter').onchange=renderSaved;
+  document.getElementById('btnForget').onclick=()=>{
+    if(!current)return;const st=stat(current.id);st.forgotten=st.forgotten?0:1;save();
+    const b=document.getElementById('btnForget');b.textContent=st.forgotten?'ลืมบ่อย ✓':'ลืมบ่อย';b.setAttribute('aria-pressed',!!st.forgotten);
+  };
+  document.getElementById('btnResume').onclick=()=>{
+    const r=store.resume?JSON.parse(JSON.stringify(store.resume)):null;if(!r)return;queue=r.ids.map(id=>byId[id]);
+    if(queue.some(q=>!q)||r.index<0||r.index>=queue.length){store.resume=null;save();return;}
+    qIndex=r.index;current=queue[qIndex];session=JSON.parse(JSON.stringify(r.session))||{seen:0,correct:0,streak:0,best:0};
+    document.getElementById('btnNext').onclick=next;document.getElementById('btnForget').disabled=false;document.getElementById('btnStar').disabled=false;
+    show('quiz');renderQuestion();
+    if(r.order && r.order.length===shownOrder.length){shownOrder=r.order;const children=Array.from(els.choices.children);r.order.forEach((letter,i)=>{const b=children.find(b=>b.dataset.letter===letter);if(b){b.querySelector('.let').textContent=(cb.shuffle.checked?LETTERS[i]:letter)+'.';els.choices.append(b);}});}
+    // Restore feedback using the grading renderer but discard its tally changes.
+    if(r.letter){const snapshot=JSON.parse(JSON.stringify(store)), oldSession=JSON.parse(JSON.stringify(session));restoring=true;answer(r.letter);restoring=false;store=snapshot;session=oldSession;lastAttempt=null;renderStatbar();}
+    store.resume=r;save();
+  };
+  var restoring=false;
+  window.practiceProgress=window.createPracticeProgress(STORAGE_KEY,store,function(nextStore,accountChanged){
+    store=nextStore;if(!accountChanged){document.getElementById("btnResume").classList.toggle("hide",!store.resume);if(!document.getElementById("saved").classList.contains("hide"))renderSaved();if(!document.getElementById("topics").classList.contains("hide"))renderTopics();renderStatbar();return;}current=null;queue=[];qIndex=-1;answered=false;lastAttempt=null;
+    Object.assign(sel,{mode:'all',systems:{},years:{},types:{mcq:true,twist:true},len:20},store.settings);
+    Object.keys(cb).forEach(k=>{cb[k].checked=store.settings['cb_'+k]??(['noBroken','weighted'].includes(k));});
+    document.getElementById('btnResume').classList.toggle('hide',!store.resume);
+    renderBanner();renderChips();updatePoolInfo();renderStatbar();show('setup');
+  },text=>{document.getElementById('practiceStatus').textContent=text;});
+  store=window.practiceProgress.get();
+  document.getElementById('btnResume').classList.toggle('hide',!store.resume);
   renderBanner();
   renderChips();
   updatePoolInfo();

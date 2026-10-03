@@ -1,10 +1,46 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function verifiedGoogle() {
+      return request.auth != null
+        && request.auth.token.email is string
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
+    }
+    function syncAdmin() {
+      return verifiedGoogle() && request.auth.token.email.lower() == 'phodsawi.2547@gmail.com';
+    }
+    function syncAllowed() {
+      return verifiedGoogle()
+        && get(/databases/$(database)/documents/practiceSyncAllowlist/$(request.auth.token.email.lower())).data.active == true;
+    }
     // Preserve existing access for other data; never bypass quiz owner rules.
     match /{topCollection}/{document=**} {
-      allow read, write: if topCollection != 'quizAnswerCorrections';
+      allow read, write: if topCollection != 'quizAnswerCorrections'
+        && topCollection != 'practiceProgress' && topCollection != 'practiceSyncAllowlist';
     }
+    match /practiceSyncAllowlist/{email} {
+      allow get: if syncAdmin() || (verifiedGoogle() && request.auth.token.email.lower() == email);
+      allow list: if syncAdmin();
+      allow create, update: if syncAdmin() && email.size() <= 254
+        && email.matches('^[^ /@]+@[^ /@]+[.][^ /@]+$')
+        && request.resource.data.keys().hasOnly(['active','updatedAt','updatedBy'])
+        && request.resource.data.active is bool
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+match /practiceProgress/{uid}/banks/{bank} {
+  function ownsProgress() {
+    return syncAllowed() && request.auth.uid == uid;
+  }
+  allow read: if ownsProgress();
+  allow create, update: if ownsProgress()
+    && bank in ['caseflow_mcq_practice_v1','caseflow_ped_mcq_practice_v1','caseflow_med_ped_mcq_practice_v1']
+    && request.resource.data.keys().hasOnly(['v','entries','reset','settings','resume'])
+    && request.resource.data.v == 1 && request.resource.data.entries is map;
+  allow delete: if false;
+}
 // Merge inside match /databases/{database}/documents in the existing rules.
 // A broad overlapping allow rule must NOT grant writes to this collection.
 match /quizAnswerCorrections/{correctionId} {
