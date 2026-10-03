@@ -1265,26 +1265,26 @@ export default function MedGuideApp() {
           {activeTab === 'home' && (
             <section aria-labelledby="practice-home-title" className="space-y-6">
               <div className="text-center">
-                <h2 id="practice-home-title" className="text-2xl font-bold text-gray-800 dark:text-gray-100">เลือกคลังข้อสอบที่อยากฝึก</h2>
-                <p className="mt-2 text-gray-500 dark:text-gray-400">เลือกบท สุ่มข้อสอบ และทวนข้อที่เคยตอบผิด</p>
+                <h2 id="practice-home-title" className={`text-2xl font-bold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}>เลือกคลังข้อสอบที่อยากฝึก</h2>
+                <p className={`mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>เลือกบท สุ่มข้อสอบ และทวนข้อที่เคยตอบผิด</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <a href={`${process.env.PUBLIC_URL}/quiz/practice.html`} className="block rounded-2xl border border-blue-200 bg-blue-50 p-8 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950 dark:hover:bg-blue-900 transition-colors">
+                <a href={`${process.env.PUBLIC_URL}/quiz/practice.html`} className={`block rounded-2xl border p-8 transition-colors ${isDarkMode ? 'border-blue-800 bg-blue-950 hover:bg-blue-900 text-blue-200' : 'border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800'}`}>
                   <Stethoscope size={32} className="text-blue-600 mb-4" />
-                  <h3 className="text-2xl font-bold text-blue-800 dark:text-blue-200">MCQ MED</h3>
-                  <p className="mt-2 text-blue-700 dark:text-blue-300">อายุรศาสตร์</p>
-                  <p className="mt-6 font-semibold text-blue-800 dark:text-blue-200">เริ่มฝึก →</p>
+                  <h3 className="text-2xl font-bold">MCQ MED</h3>
+                  <p className="mt-2">อายุรศาสตร์</p>
+                  <p className="mt-6 font-semibold">เริ่มฝึก →</p>
                 </a>
-                <a href={`${process.env.PUBLIC_URL}/quiz/practice_ped.html`} className="block rounded-2xl border border-teal-200 bg-teal-50 p-8 hover:bg-teal-100 dark:border-teal-800 dark:bg-teal-950 dark:hover:bg-teal-900 transition-colors">
+                <a href={`${process.env.PUBLIC_URL}/quiz/practice_ped.html`} className={`block rounded-2xl border p-8 transition-colors ${isDarkMode ? 'border-teal-800 bg-teal-950 hover:bg-teal-900 text-teal-200' : 'border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-800'}`}>
                   <Baby size={32} className="text-teal-600 mb-4" />
-                  <h3 className="text-2xl font-bold text-teal-800 dark:text-teal-200">MCQ PED</h3>
-                  <p className="mt-2 text-teal-700 dark:text-teal-300">กุมารเวชศาสตร์</p>
-                  <p className="mt-6 font-semibold text-teal-800 dark:text-teal-200">เริ่มฝึก →</p>
+                  <h3 className="text-2xl font-bold">MCQ PED</h3>
+                  <p className="mt-2">กุมารเวชศาสตร์</p>
+                  <p className="mt-6 font-semibold">เริ่มฝึก →</p>
                 </a>
               </div>
               <div className="flex flex-wrap justify-center gap-4 text-sm font-semibold">
-                <a href={`${process.env.PUBLIC_URL}/quiz/practice_all.html`} className="text-indigo-600 dark:text-indigo-300 hover:underline">ฝึก MED + PED รวมกัน →</a>
-                {osceVisible && <a href={`${process.env.PUBLIC_URL}/osce-med/`} className="text-indigo-600 dark:text-indigo-300 hover:underline">OSCE Flashcards →</a>}
+                <a href={`${process.env.PUBLIC_URL}/quiz/practice_all.html`} className={`hover:underline ${isDarkMode ? 'text-indigo-300' : 'text-indigo-600'}`}>ฝึก MED + PED รวมกัน →</a>
+                {osceVisible && <a href={`${process.env.PUBLIC_URL}/osce-med/`} className={`hover:underline ${isDarkMode ? 'text-indigo-300' : 'text-indigo-600'}`}>OSCE Flashcards →</a>}
               </div>
             </section>
           )}
