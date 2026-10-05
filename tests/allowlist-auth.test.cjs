@@ -1,8 +1,8 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const {JSDOM}=require('jsdom');
 const OWNER='phodsawi.2547@gmail.com';
-function setup({active=false}={}){
- const dom=new JSDOM('<div class="wrap"><button id="practiceLogin"></button><button id="practiceSync"></button><p id="practiceStatus"></p></div>');
+function setup({active=false,page}={}){
+ const dom=new JSDOM(page?fs.readFileSync(require.resolve('../public/quiz/'+page),'utf8'):'<div class="wrap"><button id="practiceLogin"></button><button id="practiceSync"></button><p id="practiceStatus"></p></div>');
  let adapter,observer,accountCalls=0,membershipReads=0,progressCalls=0,listReads=0,writes=[];
  const core=require('../public/quiz/progress-core.js');
  const context={window:{PRACTICE_CLOUD_ENABLED:true,PracticeProgressCore:core,practiceProgress:{setAdapter:a=>adapter=a,account:()=>accountCalls++,sync:()=>progressCalls++}},document:dom.window.document,auth:{currentUser:null},db:{},GoogleAuthProvider:class{setCustomParameters(){}},signInWithPopup:async()=>{const e=Error();e.code='auth/popup-closed-by-user';throw e;},signOut:async()=>{},onAuthStateChanged:(auth,fn)=>observer=fn,doc:(db,...parts)=>parts.join('/'),collection:(db,...parts)=>parts.join('/'),getDoc:async()=>{membershipReads++;return {exists:()=>true,data:()=>({active})};},getDocs:async()=>{listReads++;return {docs:[]};},setDoc:async(ref,data)=>writes.push({ref,data}),serverTimestamp:()=> 'server-time',runTransaction:async()=>{const e=Error();e.code='permission-denied';throw e;},TextEncoder};
@@ -40,3 +40,24 @@ test('source rules exclude both private collections, forbid self-enrollment and 
  assert.match(rules,/return syncAllowed\(\) && request.auth.uid == uid/);assert.match(rules,/allow list: if syncAdmin\(\)/);
  assert.match(rules,/allow create, update: if syncAdmin\(\)/);assert.match(rules,/\.data.active == true/);
 });
+
+for(const page of ['practice.html','practice_ped.html','practice_all.html']){
+ test(page+' keeps the public Flashcard link visible before and after auth changes',async()=>{
+  const c=setup({page});
+  const link=c.dom.window.document.getElementById('osceMemberLink');
+  const visible=()=>{
+   assert.equal(link.getAttribute('href'),'/osce-med/');
+   assert.equal(link.hidden,false);
+   assert.notEqual(c.dom.window.getComputedStyle(link).display,'none');
+  };
+  visible();
+  for(const user of [null,{isAnonymous:true},c.user('alice@example.com',false),c.user(),null]){
+   await c.configure(user);visible();
+   assert.equal(c.adapter(),null);
+   assert.equal(c.dom.window.document.getElementById('practiceSync').disabled,true);
+   assert.equal(c.dom.window.document.getElementById('practiceSyncAdmin').hidden,true);
+  }
+  assert.equal(c.counts().membershipReads,1);
+  assert.equal(c.counts().progressCalls,0);
+ });
+}
