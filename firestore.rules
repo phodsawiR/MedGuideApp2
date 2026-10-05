@@ -35,6 +35,20 @@ service cloud.firestore {
       allow create, update: if syncAdmin();
       allow delete: if false;
     }
+    // Public reading is limited to this deck and its explicit image manifest.
+    // Guests cannot list collections, write content, or read anyone's progress.
+    match /osceContent/collection {
+      allow get: if true;
+    }
+    function publicOsceImage(imageKey) {
+      return imageKey in get(/databases/$(database)/documents/osceContent/collection).data.imageKeys;
+    }
+    match /osceImages/{imageKey} {
+      allow get: if publicOsceImage(imageKey);
+      match /parts/{partId} {
+        allow get: if publicOsceImage(imageKey);
+      }
+    }
     match /osceProgress/{uid}/cards/{cardId} {
       function ownsOsceProgress() {
         return osceAllowed() && request.auth.uid == uid;
