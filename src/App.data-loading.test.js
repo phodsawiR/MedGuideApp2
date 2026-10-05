@@ -24,8 +24,8 @@ beforeEach(()=>{global.IS_REACT_ACT_ENVIRONMENT=true;window.scrollTo=jest.fn();w
 afterEach(()=>{act(()=>root.unmount());host.remove();});
 const mount=async hash=>{window.history.replaceState(null,'','/'+hash);await act(async()=>root.render(<App/>));};
 const route=async hash=>{await act(async()=>{window.history.replaceState(null,'','/'+hash);window.dispatchEvent(new Event('hashchange'));});};
-test('default and explicit quiz entry read only quizzes; no study-card reads/cleanup/progress listeners',async()=>{
-  await mount('');expect(window.location.hash).toBe('#quiz');
+test('explicit quiz entry reads only quizzes; no study-card reads/cleanup/progress listeners',async()=>{
+  await mount('#quiz');expect(window.location.hash).toBe('#quiz');
   expect(onSnapshot.mock.calls.map(c=>c[0])).toEqual(['quizzes']);expect(getDocs).not.toHaveBeenCalled();
   const practiceLinks=[...host.querySelectorAll('a[href*="/quiz/practice"]')];expect(practiceLinks).toHaveLength(3);
   practiceLinks.forEach(a=>expect(a.hasAttribute('target')).toBe(false));
@@ -41,4 +41,10 @@ test('opening cards starts their data; returning to quiz unsubscribes card liste
   expect(getDocs).toHaveBeenCalledTimes(1);await route('#quiz');
   cardCalls.forEach(c=>expect(c.unsubscribe).toHaveBeenCalledTimes(1));expect(getDocs).toHaveBeenCalledTimes(1);
   expect(onSnapshot.mock.calls.at(-1)[0]).toBe('quizzes');
+});
+
+test('guest homepage exposes OSCE flashcard links without loading private progress',async()=>{
+  await mount('');expect(window.location.hash).toBe('#home');
+  expect([...host.querySelectorAll('a[href="/osce-med/"]')]).toHaveLength(2);
+  expect(onSnapshot).not.toHaveBeenCalled();expect(getDocs).not.toHaveBeenCalled();
 });
