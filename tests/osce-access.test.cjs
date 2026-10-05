@@ -63,14 +63,15 @@ test('verified Google member receives cards and collection', async () => {
   assert.equal((await request({ jwt: token({ email: 'RoyalRarityRuj@gmail.com' }) })).statusCode, 200);
 });
 
-test('guest and query-token access cannot read cards or images', async () => {
+test('guests read only deck content anonymously; query tokens are rejected', async () => {
   const before = calls.length;
-  for (const url of ['/api/osce', '/api/osce?image=OSCE_MED_test.png', `/api/osce?token=${token()}`]) {
-    const response = await request({ url });
-    assert.equal(response.statusCode, 401);
-    assert.doesNotMatch(response.body, /private answer|premruj-user-id|eyJ/);
+  const handler = createHandler({ source, getPublicKey: keyGetter, now: () => clock });
+  for (const url of ['/api/osce', '/api/osce?image=OSCE_MED_test.png']) {
+    assert.equal((await request({ url, handler })).statusCode, 200);
   }
-  assert.equal(calls.length, before, 'guest must not trigger any Firestore content reads');
+  assert.ok(calls.slice(before).every(call => call.authorization === undefined));
+  assert.ok(calls.slice(before).every(call => !call.docPath.startsWith('osceProgress')));
+  assert.equal((await request({ handler, url: `/api/osce?token=${token()}` })).statusCode, 400);
 });
 
 test('all verified Google accounts can check access', async () => {
@@ -87,7 +88,7 @@ test('access check authenticates without any private content reads', async () =>
   const allowed = await request({ jwt: token(), url: '/api/osce?access=1' });
   assert.equal(allowed.statusCode, 200);
   assert.deepEqual(JSON.parse(allowed.body), { allowed: true });
-  assert.equal((await request({ url: '/api/osce?access=1' })).statusCode, 401);
+  assert.equal((await request({ url: '/api/osce?access=1' })).statusCode, 200);
   assert.equal((await request({ jwt: token({ email_verified: false }), url: '/api/osce?access=1' })).statusCode, 403);
   assert.equal((await request({ jwt: token(), url: '/api/osce?access=0' })).statusCode, 400);
   assert.equal((await request({ jwt: token(), url: '/api/osce?access=1&image=OSCE_MED_test.png' })).statusCode, 400);
@@ -219,7 +220,6 @@ test('warm caches reduce content reads but every request still authenticates; TT
   assert.equal(collectionReads, 1);
   assert.equal(imageReads, 1);
   assert.equal(keyChecks, 2);
-  assert.equal((await request({ handler, url: imageRequest.url })).statusCode, 401);
   assert.equal((await request({ ...imageRequest, jwt: token({ email_verified: false }) })).statusCode, 403);
   assert.equal((await request({ ...imageRequest, jwt: token({ email: 'another@gmail.com' }) })).statusCode, 200);
   assert.equal((await request({ ...imageRequest, jwt: token({ email: 'phodsawi.2547@gmail.com' }), url: '/api/osce?access=1' })).statusCode, 200);
@@ -233,4 +233,32 @@ test('warm caches reduce content reads but every request still authenticates; TT
   assert.equal((await request(imageRequest)).statusCode, 200);
   assert.equal(collectionReads, 3);
   assert.equal(imageReads, 2);
+});
+
+
+test('guest cache never receives content loaded with a member token', async () => {
+  const reads = [];
+  const isolated = createHandler({ getPublicKey: keyGetter, now: () => clock, source: {
+    async readCollection(jwt) {
+      reads.push(jwt);
+      if (!jwt) throw Object.assign(new Error('Unpublished'), { status: 403 });
+      return { cards: privateCards, collection: { total: 1 } };
+    },
+  }});
+  assert.equal((await request({ handler: isolated, jwt: token() })).statusCode, 200);
+  const guest = await request({ handler: isolated });
+  assert.notEqual(guest.statusCode, 200);
+  assert.doesNotMatch(guest.body, /private answer/);
+  assert.equal(reads.length, 2);
+  assert.equal(reads[1], undefined);
+});
+
+test('guest reads fail closed when public Firestore access is not enabled', async () => {
+  const source = createFirestoreSource(async (url, options) => {
+    assert.deepEqual(options.headers, {});
+    return { ok: false, status: 403 };
+  });
+  const denied = await request({ handler: createHandler({ source }) });
+  assert.equal(denied.statusCode, 403);
+  assert.doesNotMatch(denied.body, /private answer/);
 });

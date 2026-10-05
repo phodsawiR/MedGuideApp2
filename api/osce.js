@@ -1,4 +1,5 @@
-// Private OSCE delivery. Content is in protected Firestore, never in public Git/assets.
+// OSCE delivery. Guest reads use anonymous Firestore requests and explicitly published content.
+// Member reads retain authentication; caches are isolated from guest requests.
 // Verification follows https://firebase.google.com/docs/auth/admin/verify-id-tokens
 const crypto = require('node:crypto');
 
@@ -100,7 +101,7 @@ function createFirestoreSource(fetchImpl = fetch) {
     let response;
     try {
       response = await fetchImpl(`${FIRESTORE_URL}/${documentPath}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         signal: AbortSignal.timeout(10000), redirect: 'error', cache: 'no-store',
       });
     } catch { throw new AccessError(503); }
@@ -153,13 +154,14 @@ function createFirestoreSource(fetchImpl = fetch) {
 }
 
 // Explicit dependencies support synthetic-key unit tests; requests cannot override them.
-function createHandler({
+function createDeliveryHandler({
+  publicAccess = false,
   source = createFirestoreSource(),
   getPublicKey = createGoogleKeyGetter(),
   now = () => Math.floor(Date.now() / 1000),
 } = {}) {
-  // Cache only successfully loaded content. Every request verifies its own
-  // ID token and verified Google membership before accessing this cache.
+  // Cache only successful reads. Guest and member handlers each own separate caches;
+  // member requests verify their ID token before accessing their cache.
   let collectionCache;
   let collectionPending;
   const imageCache = new Map();
@@ -226,8 +228,11 @@ function createHandler({
     try {
       const authorization = req.headers?.authorization;
       const match = typeof authorization === 'string' && /^Bearer ([A-Za-z0-9_.-]+)$/.exec(authorization);
-      if (!match) throw new AccessError(401);
-      await verifyToken(match[1], getPublicKey, now());
+      if (!publicAccess) {
+        if (!match) throw new AccessError(401);
+        await verifyToken(match[1], getPublicKey, now());
+      }
+      const token = publicAccess ? undefined : match[1];
       const url = new URL(req.url, 'https://osce.invalid');
       if ([...url.searchParams.keys()].some((name) => name !== 'image' && name !== 'access') ||
           url.searchParams.getAll('image').length > 1 || url.searchParams.getAll('access').length > 1) {
@@ -237,12 +242,12 @@ function createHandler({
         if (url.searchParams.get('access') !== '1' || url.searchParams.has('image')) throw new AccessError(400);
         return json(200, { allowed: true });
       }
-      // On a cache miss Firestore also checks the verified request's ID token.
-      const content = await loadCollection(match[1]);
+      // On cache misses, Firestore enforces public manifest access or member rules.
+      const content = await loadCollection(token);
       if (!url.searchParams.has('image')) return json(200, { cards: content.cards, collection: content.collection });
       const image = url.searchParams.get('image');
       if (!IMAGE_NAME.test(image || '') || !content.cards.some((card) => card.imageKey === image)) throw new AccessError(404);
-      const { bytes, contentType } = await loadImage(match[1], image);
+      const { bytes, contentType } = await loadImage(token, image);
       res.statusCode = 200;
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Length', String(bytes.length));
@@ -252,6 +257,13 @@ function createHandler({
       return json(status, { error: status === 503 ? 'Service temporarily unavailable' : status === 500 ? 'Content unavailable' : 'Access denied' });
     }
   };
+}
+
+function createHandler(options = {}) {
+  // Never serve an authenticated cache entry to an anonymous reader.
+  const guest = createDeliveryHandler({ ...options, publicAccess: true });
+  const member = createDeliveryHandler({ ...options, publicAccess: false });
+  return (req, res) => req.headers?.authorization === undefined ? guest(req, res) : member(req, res);
 }
 
 module.exports = createHandler();

@@ -48,19 +48,23 @@ let timerInterval = null, remainingMs = 180000, deadline = 0;
 const ratedThisRound = new Set(), ratingButtons = Array.from(document.querySelectorAll('[data-rating]'));
 const current = () => queue[index];
 const announce = text => { $('announcement').textContent = text; };
-const localKey = uid => 'medguide.osce.pending.v1.' + uid;
+const localKey = uid => uid ? 'medguide.osce.pending.v1.' + uid : 'medguide.osce.guest.v1';
 
 function readLocal(uid) {
   try { const value = JSON.parse(localStorage.getItem(localKey(uid)) || '{}'); return value && typeof value === 'object' && !Array.isArray(value) ? value : {}; }
   catch (_) { localAvailable = false; return {}; }
 }
 function saveLocal() {
-  if (!user) return;
-  try { localStorage.setItem(localKey(user.uid), JSON.stringify(pending)); localAvailable = true; }
+  try { localStorage.setItem(localKey(user?.uid), JSON.stringify(user ? pending : progress)); localAvailable = true; }
   catch (_) { localAvailable = false; }
   syncMessage();
 }
 function syncMessage(note = '') {
+  if (!user) {
+    $('sync-status').textContent = localAvailable ? 'โหมดผู้เยี่ยมชม · เก็บความคืบหน้าในเครื่องนี้' : 'เครื่องนี้เก็บความคืบหน้าไม่ได้ อย่าปิดหน้านี้';
+    $('storage-note').textContent = 'เข้าสู่บัญชี Google เพื่อใช้ความคืบหน้าของบัญชีข้ามเครื่อง · ข้อมูลผู้เยี่ยมชมแยกจากบัญชี';
+    return;
+  }
   const count = Object.keys(pending).length;
   let message = note || (syncing ? 'กำลังบันทึกลงบัญชี…' : count ? 'รอบันทึกลงบัญชี ' + count + ' การ์ด' : cloudReadable ? 'ความคืบหน้าบันทึกไว้ในบัญชีแล้ว' : 'ยังอ่านความคืบหน้าจากบัญชีไม่ได้');
   if (count && !navigator.onLine) message = localAvailable ? 'ออฟไลน์ · เก็บ ' + count + ' การ์ดไว้ในเครื่อง รอเชื่อมต่อเพื่อบันทึกลงบัญชี' : 'ออฟไลน์ · ยังบันทึกคำตอบไม่ได้ อย่าปิดหน้านี้';
@@ -73,7 +77,7 @@ function normalized(value = {}) {
     reps: Number(value.reps) || 0, lapses: Number(value.lapses) || 0, rating: value.rating || '',
     response: String(value.response || '').slice(0, 12000), clientUpdatedAt: Number(value.clientUpdatedAt) || 0 };
 }
-function updateProgress(id, value) { progress[id] = normalized(value); pending[id] = progress[id]; saveLocal(); updateCounts(); }
+function updateProgress(id, value) { progress[id] = normalized(value); if (user) pending[id] = progress[id]; saveLocal(); updateCounts(); }
 async function syncPending() {
   if (syncing || !user || !ready || !navigator.onLine) { syncMessage(); return; }
   const activeUser = user, activeGeneration = generation;
@@ -139,9 +143,9 @@ function cacheImage(key, blob) {
   }
   return value.url;
 }
-async function privateFetch(url, activeUser, signal) {
-  const token = await activeUser.getIdToken();
-  return fetch(url, { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store', signal });
+async function contentFetch(url, activeUser, signal) {
+  const token = activeUser ? await activeUser.getIdToken() : null;
+  return fetch(url, { headers: token ? { Authorization: 'Bearer ' + token } : {}, cache: 'no-store', signal });
 }
 async function loadImage(card) {
   clearImage();
@@ -158,7 +162,7 @@ async function loadImage(card) {
   const activeUser = user, activeGeneration = generation, request = imageGeneration;
   imageController = new AbortController();
   try {
-    const response = await privateFetch('/api/osce?image=' + encodeURIComponent(card.imageKey), activeUser, imageController.signal);
+    const response = await contentFetch('/api/osce?image=' + encodeURIComponent(card.imageKey), activeUser, imageController.signal);
     if (activeGeneration !== generation || request !== imageGeneration) return;
     if (response.status === 401 || response.status === 403) { denyAccess('บัญชีนี้ยังเปิดชุด OSCE ไม่ได้ กรุณาเลือกบัญชี Google ที่ได้รับสิทธิ์'); return; }
     if (!response.ok) throw new Error('Image request failed');
@@ -179,7 +183,7 @@ function clearStudy() {
   $('auth-panel').hidden = false; $('retry').hidden = true;
   for (const id of ['chapter', 'category']) $(id).replaceChildren(new Option(id === 'chapter' ? 'ทุกบท' : 'ทุกหมวด', 'all'));
   $('search').value = ''; $('mode').value = 'due';
-  $('deck-description').textContent = 'เข้าสู่บัญชี Google ที่ได้รับสิทธิ์เพื่อเริ่มซ้อม';
+  $('deck-description').textContent = 'เปิดซ้อมได้ทุกคน · เข้าสู่บัญชีเพื่อบันทึกความคืบหน้าข้ามเครื่อง';
 }
 function denyAccess(message) {
   generation++; clearStudy(); $('auth-title').textContent = 'เข้าสู่บัญชี Google เพื่อเริ่มซ้อม'; $('auth-message').textContent = message;
@@ -188,29 +192,33 @@ function denyAccess(message) {
 async function loadAccount(activeUser) {
   const activeGeneration = ++generation; clearStudy();
   $('account').hidden = !activeUser; $('logout').hidden = !activeUser; $('account').textContent = activeUser?.email || '';
-  if (!activeUser) { $('auth-title').textContent = 'เข้าสู่บัญชีเพื่อเริ่มซ้อม'; $('auth-message').textContent = 'เข้าสู่บัญชี Google เพื่อเริ่มซ้อม ความคืบหน้าจะเก็บไว้ในบัญชี'; $('login').hidden = false; $('login').textContent = 'เข้าสู่ระบบด้วย Google'; return; }
-  if (!activeUser.emailVerified || !activeUser.providerData?.some(provider => provider.providerId === 'google.com')) {
-    denyAccess('กรุณาเข้าสู่บัญชี Google ที่ยืนยันอีเมลแล้ว'); return;
-  }
+
   $('login').hidden = true; $('auth-title').textContent = 'กำลังเปิดชุด OSCE'; $('auth-message').textContent = 'กำลังอ่านการ์ดและความคืบหน้าจากบัญชี…';
   try {
-    const response = await privateFetch('/api/osce', activeUser);
+    const response = await contentFetch('/api/osce', activeUser);
     if (activeGeneration !== generation) return;
     if (response.status === 401 || response.status === 403) { denyAccess('บัญชีนี้ยังเปิดชุด OSCE ไม่ได้ กรุณาเลือกบัญชี Google ที่ได้รับสิทธิ์'); return; }
     if (!response.ok) throw new Error('Deck request failed');
     const data = await response.json(); if (activeGeneration !== generation) return;
     if (!Array.isArray(data.cards)) throw new Error('Invalid deck');
-    cards = data.cards; pending = readLocal(activeUser.uid);
+    cards = data.cards; pending = activeUser ? readLocal(activeUser.uid) : {};
+    progress = activeUser ? {} : readLocal(null);
     const ids = new Set(cards.map(card => card.id));
+    if (!activeUser) progress = Object.fromEntries(Object.entries(progress).filter(([id]) => ids.has(id)).map(([id, value]) => [id, normalized(value)]));
     pending = Object.fromEntries(Object.entries(pending).filter(([id]) => ids.has(id)).map(([id, value]) => [id, normalized(value)]));
-    try {
+    if (activeUser) try {
       const snapshot = await getDocs(collection(db, 'osceProgress', activeUser.uid, 'cards'));
       if (activeGeneration !== generation) return;
       const remote = {}; snapshot.forEach(row => { if (ids.has(row.id)) remote[row.id] = normalized(row.data()); });
       progress = mergeProgress(remote, pending); cloudReadable = true;
       for (const id of Object.keys(pending)) if (progress[id] !== pending[id]) delete pending[id];
     } catch (_) { if (activeGeneration !== generation) return; progress = { ...pending }; cloudReadable = false; }
-    ready = true; saveLocal(); $('auth-panel').hidden = true; $('study').hidden = false;
+    ready = true; saveLocal(); $('auth-panel').hidden = Boolean(activeUser); $('study').hidden = false;
+    if (!activeUser) {
+      $('auth-title').textContent = 'บันทึกความคืบหน้าข้ามเครื่อง';
+      $('auth-message').textContent = 'ซ้อมได้ทันทีโดยไม่ต้องล็อกอิน หรือเข้าสู่บัญชี Google เพื่อใช้ความคืบหน้าส่วนตัวของบัญชี';
+      $('login').hidden = false; $('login').textContent = 'เข้าสู่ระบบด้วย Google';
+    }
     $('deck-description').textContent = cards.length + ' การ์ด · เลือกบท ซ้อมก่อนเปิดเฉลย แล้วประเมินเพื่อจัดวันทวน';
     for (const [id, key] of [['chapter', 'chapter'], ['category', 'category']]) {
       const values = Array.from(new Set(cards.map(card => card[key]).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'th'));
@@ -311,7 +319,7 @@ function toggleTimer() {
   deadline = Date.now() + remainingMs; timerInterval = setInterval(() => { remainingMs = Math.max(0, deadline - Date.now()); if (!remainingMs) { clearInterval(timerInterval); timerInterval = null; announce('หมดเวลาซ้อม ลองสรุปคำตอบแล้วเปิดเฉลย'); } drawTimer(); }, 200); drawTimer();
 }
 
-$('login').addEventListener('click', login); $('retry').addEventListener('click', () => user && loadAccount(user));
+$('login').addEventListener('click', login); $('retry').addEventListener('click', () => loadAccount(user));
 $('logout').addEventListener('click', async () => { flushResponse(); await signOut(auth); });
 for (const id of ['chapter', 'category', 'mode']) $(id).addEventListener('change', rebuildQueue);
 $('search').addEventListener('input', rebuildQueue);
@@ -337,7 +345,11 @@ document.addEventListener('keydown', event => {
 });
 window.addEventListener('online', () => { syncMessage(); void syncPending(); }); window.addEventListener('offline', () => syncMessage());
 window.addEventListener('pagehide', flushResponse); document.addEventListener('visibilitychange', () => { if (document.hidden) flushResponse(); });
-onAuthStateChanged(auth, nextUser => { if (user?.uid !== nextUser?.uid) flushResponse(); user = nextUser; void loadAccount(nextUser); });
+onAuthStateChanged(auth, nextUser => {
+  const account = nextUser?.emailVerified && nextUser.providerData?.some(provider => provider.providerId === 'google.com') ? nextUser : null;
+  if (user?.uid !== account?.uid) flushResponse();
+  user = account; void loadAccount(account);
+});
 getRedirectResult(auth).catch(() => { $('auth-message').textContent = 'เข้าสู่บัญชีไม่สำเร็จ กรุณาลองอีกครั้ง'; });
 
 
